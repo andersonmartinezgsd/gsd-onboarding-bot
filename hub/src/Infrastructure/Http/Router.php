@@ -59,6 +59,17 @@ final class Router
             }
         }
 
+        // ── Validación CSRF para rutas de mutación ─────────────────────────
+        // Los endpoints de API JSON usan el header X-CSRF-Token enviado por apiClient.js.
+        // Se valida en todas las rutas que modifican estado (POST/PUT/DELETE).
+        // Las rutas GET son seguras por convención (no producen efectos secundarios).
+        if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            $csrfHeader = $request->header('x-csrf-token') ?? '';
+            if (!\AmrHub\Support\CsrfToken::validate($csrfHeader)) {
+                return Response::json(['error' => 'Token CSRF inválido o ausente'], 403);
+            }
+        }
+
         $routes = $this->routes[$method] ?? [];
 
         foreach ($routes as $route) {
@@ -68,13 +79,13 @@ final class Router
                 [$controllerClass, $action] = $route['handler'];
 
                 if (!class_exists($controllerClass)) {
-                    return Response::json(['error' => "Controlador no encontrado: {$controllerClass}"], 500);
+                    return Response::json(['error' => 'Error de configuración del servidor'], 500);
                 }
 
                 $controller = new $controllerClass();
 
                 if (!method_exists($controller, $action)) {
-                    return Response::json(['error' => "Acción no encontrada: {$action}"], 500);
+                    return Response::json(['error' => 'Error de configuración del servidor'], 500);
                 }
 
                 try {

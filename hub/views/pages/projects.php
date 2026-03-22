@@ -250,28 +250,52 @@ Genera:
 
         const data = await AMR.api.post('/api/v1/ai/chat', { prompt, model, provider });
 
-        document.getElementById('ai-analysis').innerHTML = `
-            <div class="analysis-result">${formatMd(data.response.content)}</div>
-            <div class="analysis-meta text-muted text-sm">
-                Modelo: ${data.response.model} · ${data.response.tokens_in + data.response.tokens_out} tokens · ${data.response.latency_ms}ms
-            </div>`;
+        // Construir el resultado de forma segura: formatMd escapa el contenido del LLM,
+        // pero los metadatos (model, tokens) se escapan explícitamente por separado.
+        const analysisEl = document.getElementById('ai-analysis');
+        analysisEl.innerHTML = '';
+
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'analysis-result';
+        resultDiv.innerHTML = formatMd(data.response.content); // ya escapado internamente
+
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'analysis-meta text-muted text-sm';
+        const totalTokens = (data.response.tokens_in ?? 0) + (data.response.tokens_out ?? 0);
+        metaDiv.textContent = `Modelo: ${data.response.model ?? '—'} · ${totalTokens} tokens · ${data.response.latency_ms ?? 0}ms`;
+
+        analysisEl.appendChild(resultDiv);
+        analysisEl.appendChild(metaDiv);
     } catch (err) {
-        document.getElementById('ai-analysis').innerHTML = `<p class="text-error">Error: ${err.message}</p>`;
+        const p = document.createElement('p');
+        p.className = 'text-error';
+        p.textContent = 'Error: ' + (err.message || 'Error desconocido');
+        const el = document.getElementById('ai-analysis');
+        el.innerHTML = '';
+        el.appendChild(p);
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-magic"></i> Generar Análisis';
     }
 }
 
+function escMd(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str ?? '');
+    return d.innerHTML;
+}
+
 function formatMd(text) {
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
-    text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
-    text = text.replace(/^## (.*?)$/gm, '<h3>$1</h3>');
-    text = text.replace(/^# (.*?)$/gm, '<h2>$1</h2>');
-    text = text.replace(/\n/g, '<br>');
-    return text;
+    // SEGURIDAD: escapar primero para prevenir XSS desde respuestas del LLM
+    let result = escMd(text);
+    result = result.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
+    result = result.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+    result = result.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    result = result.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
+    result = result.replace(/^## (.*?)$/gm, '<h3>$1</h3>');
+    result = result.replace(/^# (.*?)$/gm, '<h2>$1</h2>');
+    result = result.replace(/\n/g, '<br>');
+    return result;
 }
 
 function sortTable(col) {

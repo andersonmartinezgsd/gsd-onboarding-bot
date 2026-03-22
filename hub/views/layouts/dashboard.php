@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <meta name="theme-color" content="#0A0E1A">
+    <meta name="csrf-token" content="<?= htmlspecialchars(\AmrHub\Support\CsrfToken::get(), ENT_QUOTES, 'UTF-8') ?>">
     <title><?= htmlspecialchars($pageTitle ?? 'AMR Hub') ?> — AMR Hub</title>
 
     <!-- Google Fonts (preconnect para ambos dominios requeridos) -->
@@ -11,8 +12,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-    <!-- Iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Iconos — SRI hash para garantizar integridad del asset de CDN (A08) -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+          integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer">
 
     <!-- Design System AMR -->
     <link rel="stylesheet" href="/assets/css/design-system.css">

@@ -56,10 +56,10 @@
     <div class="card-header"><h3><i class="fas fa-info-circle"></i> Información del Sistema</h3></div>
     <div class="card-body">
         <div class="info-grid">
-            <div class="info-item"><span class="info-label">PHP Version:</span><span><?= PHP_VERSION ?></span></div>
+            <div class="info-item"><span class="info-label">PHP Version:</span><span><?= htmlspecialchars(PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, ENT_QUOTES, 'UTF-8') ?>.x</span></div>
             <div class="info-item"><span class="info-label">Framework:</span><span>AMR Hub v1.0</span></div>
             <div class="info-item"><span class="info-label">Database:</span><span>SQLite</span></div>
-            <div class="info-item"><span class="info-label">OS:</span><span><?= PHP_OS ?></span></div>
+            <div class="info-item"><span class="info-label">Entorno:</span><span>Producción</span></div>
         </div>
     </div>
 </div>

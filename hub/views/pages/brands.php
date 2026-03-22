@@ -143,13 +143,29 @@ async function generateBrandGuide() {
         return;
     }
 
-    // Mostrar paleta
+    // Validar que los colores sean valores hex válidos antes de usarlos en CSS
+    const hexRegex = /^#[0-9A-Fa-f]{6}$/;
+    if (!hexRegex.test(primary) || !hexRegex.test(secondary) || !hexRegex.test(accent)) {
+        AMR.toast.error('Los colores deben ser valores hexadecimales válidos (#RRGGBB)');
+        return;
+    }
+
+    // Mostrar paleta — colores ya validados como hex seguro, se pueden usar en style
     document.getElementById('brand-result').style.display = 'block';
-    document.getElementById('palette-preview').innerHTML = `
-        <div class="palette-swatch" style="background:${primary}"><span>${primary}</span><small>Primario</small></div>
-        <div class="palette-swatch" style="background:${secondary}"><span>${secondary}</span><small>Secundario</small></div>
-        <div class="palette-swatch" style="background:${accent}"><span>${accent}</span><small>Acento</small></div>
-    `;
+    const paletteEl = document.getElementById('palette-preview');
+    paletteEl.innerHTML = '';
+    [[primary, 'Primario'], [secondary, 'Secundario'], [accent, 'Acento']].forEach(([color, label]) => {
+        const swatch = document.createElement('div');
+        swatch.className = 'palette-swatch';
+        swatch.style.background = color; // seguro: color es hex validado
+        const span = document.createElement('span');
+        span.textContent = color;
+        const small = document.createElement('small');
+        small.textContent = label;
+        swatch.appendChild(span);
+        swatch.appendChild(small);
+        paletteEl.appendChild(swatch);
+    });
 
     document.getElementById('brand-guide-content').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Generando guía de marca con AI...</p>';
 
@@ -181,7 +197,14 @@ Responde en español. Formato profesional.`;
             provider: 'ollama',
         });
 
-        let content = data.response.content;
+        // SEGURIDAD: escapar el contenido del LLM antes de formatearlo
+        function escBrand(str) {
+            const d = document.createElement('div');
+            d.textContent = String(str ?? '');
+            return d.innerHTML;
+        }
+
+        let content = escBrand(data.response.content);
         content = content.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
         content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         content = content.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
@@ -190,7 +213,12 @@ Responde en español. Formato profesional.`;
 
         document.getElementById('brand-guide-content').innerHTML = content;
     } catch (err) {
-        document.getElementById('brand-guide-content').innerHTML = `<p class="text-error">Error: ${err.message}</p>`;
+        const p = document.createElement('p');
+        p.className = 'text-error';
+        p.textContent = 'Error: ' + (err.message || 'Error desconocido');
+        const el = document.getElementById('brand-guide-content');
+        el.innerHTML = '';
+        el.appendChild(p);
     }
 }
 

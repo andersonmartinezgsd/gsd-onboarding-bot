@@ -247,20 +247,29 @@ async function sendMessage() {
     } catch (err) {
         const thinkingEl = document.getElementById('thinking-msg');
         if (thinkingEl) {
-            thinkingEl.querySelector('.message-content').innerHTML =
-                `<span class="text-error">Error: ${err.message || 'No se pudo conectar con el proveedor AI'}</span>`;
+            const errSpan = document.createElement('span');
+            errSpan.className = 'text-error';
+            errSpan.textContent = 'Error: ' + (err.message || 'No se pudo conectar con el proveedor AI');
+            thinkingEl.querySelector('.message-content').innerHTML = '';
+            thinkingEl.querySelector('.message-content').appendChild(errSpan);
             thinkingEl.removeAttribute('id');
         }
     }
 }
 
 function formatResponse(text) {
-    // Básico: convertir bloques de código
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
-    text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/\n/g, '<br>');
-    return text;
+    // SEGURIDAD: escapar el texto completo ANTES de aplicar cualquier transformación HTML.
+    // Esto previene XSS si el LLM devuelve HTML o scripts maliciosos.
+    const escaped = escapeHtml(text);
+
+    // Aplicar formato Markdown básico sobre texto ya escapado.
+    // Los grupos de captura no pueden contener HTML inyectado porque el texto fue escapado.
+    let result = escaped;
+    result = result.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
+    result = result.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+    result = result.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    result = result.replace(/\n/g, '<br>');
+    return result;
 }
 
 function escapeHtml(text) {

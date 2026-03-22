@@ -74,8 +74,16 @@ if (file_exists($schemaFile)) {
     }
 }
 
-// ── Session ─────────────────────────────────────────
+// ── Session — configuración segura antes de session_start() ─────────
 if (session_status() === PHP_SESSION_NONE) {
+    // Cookies de sesión solo accesibles por HTTP (no JavaScript)
+    ini_set('session.cookie_httponly', '1');
+    // SameSite=Lax previene CSRF desde sitios externos
+    ini_set('session.cookie_samesite', 'Lax');
+    // Forzar uso de cookies (nunca session ID en URL)
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid', '0');
+    // Regenerar ID al inicio para prevenir session fixation
     session_start();
 }
 

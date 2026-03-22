@@ -10,7 +10,8 @@ return [
     'app' => [
         'name'    => 'AMR Hub',
         'version' => '1.0.0',
-        'debug'   => true,
+        // SEGURIDAD: cambiar a false en producción para no exponer stack traces
+        'debug'   => false,
         'url'     => 'http://localhost:8080',
     ],
 
@@ -47,10 +48,12 @@ return [
     ],
 
     'upload' => [
-        'max_size_mb'      => 50,
-        'allowed_images'   => ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'],
-        'allowed_docs'     => ['pdf', 'doc', 'docx', 'txt', 'md', 'csv', 'xlsx'],
-        'allowed_videos'   => ['mp4', 'webm', 'mov'],
+        'max_size_mb'    => 50,
+        // SVG excluido: riesgo de XSS embebido
+        // doc/docx/xlsx excluidos: riesgo de macros maliciosas
+        'allowed_images' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        'allowed_docs'   => ['pdf', 'txt', 'md', 'csv'],
+        'allowed_videos' => ['mp4', 'webm', 'mov'],
     ],
 
     'security' => [

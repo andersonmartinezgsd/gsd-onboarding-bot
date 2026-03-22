@@ -87,9 +87,20 @@ async function loadAgents() {
         allAgents = data.agents || [];
         renderAgents(allAgents);
     } catch (err) {
-        document.getElementById('agents-grid').innerHTML =
-            `<p class="text-error">Error cargando agentes: ${err.message}</p>`;
+        const p = document.createElement('p');
+        p.className = 'text-error';
+        p.textContent = 'Error cargando agentes: ' + (err.message || 'Error desconocido');
+        const grid = document.getElementById('agents-grid');
+        grid.innerHTML = '';
+        grid.appendChild(p);
     }
+}
+
+// Función de escape centralizada para texto plano en HTML
+function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str ?? '');
+    return d.innerHTML;
 }
 
 function renderAgents(agents) {
@@ -99,25 +110,31 @@ function renderAgents(agents) {
         return;
     }
 
+    // SEGURIDAD: todos los datos de la API se escapan antes de insertarse en innerHTML
     grid.innerHTML = agents.map(a => `
         <div class="agent-card ${a.status === 'active' ? '' : 'agent-inactive'}">
             <div class="agent-header">
-                <span class="agent-icon">${a.icon || '🤖'}</span>
-                <span class="agent-status-badge ${a.status}">${a.status === 'active' ? '🟢' : '🔴'}</span>
+                <span class="agent-icon">${esc(a.icon || '🤖')}</span>
+                <span class="agent-status-badge ${esc(a.status)}">${a.status === 'active' ? '🟢' : '🔴'}</span>
             </div>
-            <h4 class="agent-name">${a.name}</h4>
-            <span class="agent-category">${a.category}</span>
-            <p class="agent-desc">${a.description || 'Sin descripción'}</p>
+            <h4 class="agent-name">${esc(a.name)}</h4>
+            <span class="agent-category">${esc(a.category)}</span>
+            <p class="agent-desc">${esc(a.description || 'Sin descripción')}</p>
             <div class="agent-stats">
-                <span title="Tareas completadas"><i class="fas fa-check"></i> ${a.tasks_completed}</span>
-                <span title="Experiencia"><i class="fas fa-star"></i> ${a.xp} XP</span>
-                <span title="Nivel" class="agent-level">${a.level}</span>
+                <span title="Tareas completadas"><i class="fas fa-check"></i> ${esc(a.tasks_completed)}</span>
+                <span title="Experiencia"><i class="fas fa-star"></i> ${esc(a.xp)} XP</span>
+                <span title="Nivel" class="agent-level">${esc(a.level)}</span>
             </div>
             <div class="agent-actions">
-                <button class="btn btn-sm btn-ghost" onclick="chatWithAgent('${a.agent_id}', '${a.name}')">
+                <button class="btn btn-sm btn-ghost"
+                        data-agent-id="${esc(a.agent_id)}"
+                        data-agent-name="${esc(a.name)}"
+                        onclick="chatWithAgent(this.dataset.agentId, this.dataset.agentName)">
                     <i class="fas fa-comment"></i> Chat
                 </button>
-                <button class="btn btn-sm btn-ghost" onclick="assignTask('${a.id}')">
+                <button class="btn btn-sm btn-ghost"
+                        data-agent-db-id="${esc(a.id)}"
+                        onclick="assignTask(this.dataset.agentDbId)">
                     <i class="fas fa-tasks"></i> Tarea
                 </button>
             </div>
@@ -206,5 +223,10 @@ async function createAgent() {
     } catch (err) {
         AMR.toast.error('Error creando agente: ' + err.message);
     }
+}
+
+// assignTask — stub hasta que el endpoint /api/v1/agents/{id}/tasks esté implementado
+function assignTask(agentDbId) {
+    AMR.toast.info(`Asignación de tareas próximamente (agente #${agentDbId})`);
 }
 </script>
