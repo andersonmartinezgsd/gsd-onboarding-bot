@@ -1,0 +1,202 @@
+<!-- Brand Manager -->
+<div class="page-header">
+    <div>
+        <h2>Brand Manager</h2>
+        <p class="text-muted">Gestiona marcas, paletas de colores, identidad visual y guías de estilo</p>
+    </div>
+</div>
+
+<!-- Upload Zone -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-cloud-upload-alt"></i> Subir Assets de Marca</h3>
+    </div>
+    <div class="card-body">
+        <div class="upload-zone" id="upload-zone"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleDrop(event)">
+            <i class="fas fa-images upload-icon"></i>
+            <h3>Arrastra archivos aquí</h3>
+            <p class="text-muted">Logos, capturas de pantalla, documentos de marca, videos</p>
+            <p class="text-muted text-sm">PNG, JPG, SVG, PDF, MP4 — Máx 50MB</p>
+            <input type="file" id="file-input" multiple accept="image/*,.pdf,.doc,.docx,.mp4,.webm" style="display:none" onchange="uploadFiles(this.files)">
+            <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+                <i class="fas fa-folder-open"></i> Seleccionar Archivos
+            </button>
+        </div>
+        <div id="upload-progress" style="display:none">
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <span class="text-sm text-muted" id="upload-status">Subiendo...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Crear Marca -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-palette"></i> Crear / Analizar Marca</h3>
+    </div>
+    <div class="card-body">
+        <div class="brand-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre de la marca</label>
+                    <input type="text" id="brand-name" class="form-input" placeholder="AMR Tech">
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="brand-desc" class="form-input" placeholder="Automatización de ventas y marketplace tecnológico">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Color primario</label>
+                    <div class="color-input-group">
+                        <input type="color" id="brand-primary" value="#00D4FF" class="color-picker">
+                        <input type="text" class="form-input form-input-sm" value="#00D4FF" id="brand-primary-hex">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Color secundario</label>
+                    <div class="color-input-group">
+                        <input type="color" id="brand-secondary" value="#7C3AED" class="color-picker">
+                        <input type="text" class="form-input form-input-sm" value="#7C3AED" id="brand-secondary-hex">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Color acento</label>
+                    <div class="color-input-group">
+                        <input type="color" id="brand-accent" value="#F59E0B" class="color-picker">
+                        <input type="text" class="form-input form-input-sm" value="#F59E0B" id="brand-accent-hex">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="generateBrandGuide()">
+                <i class="fas fa-magic"></i> Generar Guía de Marca con AI
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Brand Guide Result -->
+<div class="card" id="brand-result" style="display:none">
+    <div class="card-header">
+        <h3><i class="fas fa-book"></i> Guía de Marca Generada</h3>
+    </div>
+    <div class="card-body">
+        <!-- Color Palette Preview -->
+        <div class="palette-preview" id="palette-preview"></div>
+
+        <!-- AI Generated Guide -->
+        <div id="brand-guide-content" class="brand-guide"></div>
+    </div>
+</div>
+
+<script>
+function handleDrop(event) {
+    event.preventDefault();
+    event.target.closest('.upload-zone').classList.remove('drag-over');
+    const files = event.dataTransfer.files;
+    if (files.length > 0) uploadFiles(files);
+}
+
+async function uploadFiles(files) {
+    const formData = new FormData();
+    for (const file of files) {
+        formData.append('files[]', file);
+    }
+
+    document.getElementById('upload-progress').style.display = 'block';
+    document.getElementById('upload-status').textContent = `Subiendo ${files.length} archivo(s)...`;
+
+    try {
+        const response = await fetch('/api/v1/documents/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await response.json();
+
+        document.getElementById('progress-fill').style.width = '100%';
+        document.getElementById('upload-status').textContent = `✅ ${data.count} archivo(s) subidos`;
+
+        AMR.toast.success(`${data.count} archivos subidos correctamente`);
+    } catch (err) {
+        document.getElementById('upload-status').textContent = '❌ Error subiendo archivos';
+        AMR.toast.error('Error: ' + err.message);
+    }
+}
+
+async function generateBrandGuide() {
+    const name = document.getElementById('brand-name').value.trim();
+    const desc = document.getElementById('brand-desc').value.trim();
+    const primary = document.getElementById('brand-primary').value;
+    const secondary = document.getElementById('brand-secondary').value;
+    const accent = document.getElementById('brand-accent').value;
+
+    if (!name) {
+        AMR.toast.error('Ingresa el nombre de la marca');
+        return;
+    }
+
+    // Mostrar paleta
+    document.getElementById('brand-result').style.display = 'block';
+    document.getElementById('palette-preview').innerHTML = `
+        <div class="palette-swatch" style="background:${primary}"><span>${primary}</span><small>Primario</small></div>
+        <div class="palette-swatch" style="background:${secondary}"><span>${secondary}</span><small>Secundario</small></div>
+        <div class="palette-swatch" style="background:${accent}"><span>${accent}</span><small>Acento</small></div>
+    `;
+
+    document.getElementById('brand-guide-content').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Generando guía de marca con AI...</p>';
+
+    const prompt = `Genera una guía de marca profesional completa para:
+
+Marca: ${name}
+Descripción: ${desc || 'Empresa de tecnología'}
+Colores:
+- Primario: ${primary}
+- Secundario: ${secondary}
+- Acento: ${accent}
+
+Incluye:
+1. Misión y visión de marca
+2. Tono de voz y personalidad
+3. Uso correcto de colores (primario para CTAs, secundario para elementos decorativos, etc.)
+4. Tipografías recomendadas
+5. Guía de uso del logo (espaciado, fondos permitidos, fondos prohibidos)
+6. Ejemplos de aplicación (website, tarjetas, redes sociales)
+7. Do's and Don'ts
+8. Paleta extendida (colores de texto, fondos, bordes, estados semánticos)
+
+Responde en español. Formato profesional.`;
+
+    try {
+        const data = await AMR.api.post('/api/v1/ai/chat', {
+            prompt,
+            model: 'qwen3:8b',
+            provider: 'ollama',
+        });
+
+        let content = data.response.content;
+        content = content.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
+        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        content = content.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
+        content = content.replace(/^## (.*?)$/gm, '<h3>$1</h3>');
+        content = content.replace(/\n/g, '<br>');
+
+        document.getElementById('brand-guide-content').innerHTML = content;
+    } catch (err) {
+        document.getElementById('brand-guide-content').innerHTML = `<p class="text-error">Error: ${err.message}</p>`;
+    }
+}
+
+// Sincronizar color pickers con hex inputs
+document.querySelectorAll('.color-picker').forEach(picker => {
+    picker.addEventListener('input', (e) => {
+        const hexInput = e.target.parentElement.querySelector('.form-input');
+        if (hexInput) hexInput.value = e.target.value;
+    });
+});
+</script>

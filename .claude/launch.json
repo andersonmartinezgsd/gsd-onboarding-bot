@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "amr-hub",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "localhost:8181", "-t", "hub/public/"],
+      "port": 8181,
+      "autoPort": false
+    }
+  ]
+}

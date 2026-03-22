@@ -1,0 +1,12 @@
+config/config.php
+storage/db/*.sqlite
+storage/logs/*.log
+storage/uploads/documents/*
+storage/uploads/images/*
+storage/uploads/videos/*
+storage/cache/*
+vendor/
+node_modules/
+.env
+*.swp
+.DS_Store
