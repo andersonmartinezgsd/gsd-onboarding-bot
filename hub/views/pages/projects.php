@@ -14,9 +14,13 @@
     <div class="card-body">
         <div class="scan-form">
             <div class="input-group">
-                <input type="text" id="project-path" class="form-input" placeholder="Ruta del proyecto (ej: /Users/andersonmartinezrestrepo/GSD/td-dashboard)" style="flex:1">
+                <label for="project-path" class="sr-only">Ruta del proyecto a escanear</label>
+                <input type="text" id="project-path" class="form-input"
+                       placeholder="Ruta del proyecto (ej: /Users/andersonmartinezrestrepo/GSD/td-dashboard)"
+                       aria-label="Ruta del proyecto a escanear"
+                       style="flex:1">
                 <button class="btn btn-primary" onclick="scanProject()" id="scan-btn">
-                    <i class="fas fa-radar"></i> Escanear
+                    <i class="fas fa-radar" aria-hidden="true"></i> Escanear
                 </button>
             </div>
             <div class="scan-presets">
@@ -123,20 +127,20 @@ async function scanProject() {
         // Stats
         document.getElementById('scan-stats').innerHTML = `
             <div class="stat-card">
-                <div class="stat-icon" style="background:rgba(0,212,255,.15);color:var(--amr-primary)"><i class="fas fa-file-code"></i></div>
+                <div class="stat-icon stat-icon-primary"><i class="fas fa-file-code" aria-hidden="true"></i></div>
                 <div class="stat-info"><span class="stat-value">${data.total_files}</span><span class="stat-label">Archivos</span></div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:rgba(124,58,237,.15);color:var(--amr-secondary)"><i class="fas fa-code"></i></div>
-                <div class="stat-info"><span class="stat-value">${data.total_lines.toLocaleString()}</span><span class="stat-label">Líneas de código</span></div>
+                <div class="stat-icon stat-icon-secondary"><i class="fas fa-code" aria-hidden="true"></i></div>
+                <div class="stat-info"><span class="stat-value">${data.total_lines.toLocaleString('es-CO')}</span><span class="stat-label">Líneas de código</span></div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:rgba(245,158,11,.15);color:var(--amr-accent)"><i class="fas fa-language"></i></div>
+                <div class="stat-icon stat-icon-accent"><i class="fas fa-language" aria-hidden="true"></i></div>
                 <div class="stat-info"><span class="stat-value">${Object.keys(data.languages).length}</span><span class="stat-label">Lenguajes</span></div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:rgba(239,68,68,.15);color:var(--amr-error)"><i class="fas fa-exclamation-triangle"></i></div>
-                <div class="stat-info"><span class="stat-value">${data.issues_count}</span><span class="stat-label">Archivos >200 líneas</span></div>
+                <div class="stat-icon stat-icon-error"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></div>
+                <div class="stat-info"><span class="stat-value">${data.issues_count}</span><span class="stat-label">Archivos &gt;200 líneas</span></div>
             </div>
         `;
 
@@ -169,18 +173,33 @@ async function scanProject() {
 }
 
 function renderFiles(files) {
+    const esc = (str) => {
+        const d = document.createElement('div');
+        d.textContent = String(str ?? '—');
+        return d.innerHTML;
+    };
+
     const tbody = document.getElementById('files-tbody');
+
+    if (files.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:var(--space-8)">No hay archivos en esta categoría</td></tr>';
+        return;
+    }
+
     tbody.innerHTML = files.map(f => {
         const lineClass = f.line_count > 500 ? 'text-error' : f.line_count > 200 ? 'text-warning' : 'text-success';
-        const status = f.line_count > 500 ? '🔴 Crítico' : f.line_count > 200 ? '🟡 Refactorizar' : '🟢 OK';
+        const statusText = f.line_count > 500 ? 'Crítico' : f.line_count > 200 ? 'Refactorizar' : 'OK';
+        const statusClass = f.line_count > 500 ? 'error' : f.line_count > 200 ? 'warning' : 'success';
         const size = f.size_bytes > 1024 ? `${(f.size_bytes/1024).toFixed(1)} KB` : `${f.size_bytes} B`;
+        const category = esc(f.category || '—');
+        const catLower = String(f.category || '').toLowerCase();
         return `<tr>
-            <td><code class="file-path">${f.file_path}</code></td>
-            <td>${f.language || '—'}</td>
-            <td class="${lineClass}"><strong>${f.line_count}</strong></td>
-            <td>${size}</td>
-            <td><span class="badge badge-${f.category?.toLowerCase()}">${f.category || '—'}</span></td>
-            <td>${status}</td>
+            <td><code class="file-path">${esc(f.file_path)}</code></td>
+            <td>${esc(f.language || '—')}</td>
+            <td class="${lineClass}" aria-label="${f.line_count} líneas"><strong>${esc(f.line_count)}</strong></td>
+            <td>${esc(size)}</td>
+            <td><span class="badge badge-${catLower}">${category}</span></td>
+            <td><span class="amr-badge amr-badge-${statusClass}" aria-label="Estado: ${statusText}">${statusText}</span></td>
         </tr>`;
     }).join('');
 }

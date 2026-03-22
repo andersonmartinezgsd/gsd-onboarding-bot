@@ -51,13 +51,17 @@ async function uploadDocs(files) {
     const formData = new FormData();
     for (const file of files) formData.append('files[]', file);
 
+    const uploadZone = document.getElementById('doc-upload-zone');
+    if (uploadZone) uploadZone.setAttribute('aria-busy', 'true');
+
     try {
-        const response = await fetch('/api/v1/documents/upload', { method: 'POST', body: formData });
-        const data = await response.json();
+        const data = await AMR.api.upload('/api/v1/documents/upload', formData);
         AMR.toast.success(`${data.count} archivo(s) subidos`);
         loadDocuments();
     } catch (err) {
-        AMR.toast.error('Error subiendo archivos');
+        AMR.toast.error('Error subiendo archivos: ' + (err.message || 'Error desconocido'));
+    } finally {
+        if (uploadZone) uploadZone.removeAttribute('aria-busy');
     }
 }
 

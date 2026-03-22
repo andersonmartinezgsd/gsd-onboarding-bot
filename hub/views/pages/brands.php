@@ -41,35 +41,35 @@
         <div class="brand-form">
             <div class="form-row">
                 <div class="form-group">
-                    <label>Nombre de la marca</label>
+                    <label for="brand-name">Nombre de la marca</label>
                     <input type="text" id="brand-name" class="form-input" placeholder="AMR Tech">
                 </div>
                 <div class="form-group">
-                    <label>Descripción</label>
+                    <label for="brand-desc">Descripción</label>
                     <input type="text" id="brand-desc" class="form-input" placeholder="Automatización de ventas y marketplace tecnológico">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Color primario</label>
+                    <label for="brand-primary">Color primario</label>
                     <div class="color-input-group">
-                        <input type="color" id="brand-primary" value="#00D4FF" class="color-picker">
-                        <input type="text" class="form-input form-input-sm" value="#00D4FF" id="brand-primary-hex">
+                        <input type="color" id="brand-primary" value="#00D4FF" class="color-picker" aria-label="Selector de color primario">
+                        <input type="text" class="form-input form-input-sm" value="#00D4FF" id="brand-primary-hex" aria-label="Valor hexadecimal del color primario" pattern="#[0-9A-Fa-f]{6}">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Color secundario</label>
+                    <label for="brand-secondary">Color secundario</label>
                     <div class="color-input-group">
-                        <input type="color" id="brand-secondary" value="#7C3AED" class="color-picker">
-                        <input type="text" class="form-input form-input-sm" value="#7C3AED" id="brand-secondary-hex">
+                        <input type="color" id="brand-secondary" value="#7C3AED" class="color-picker" aria-label="Selector de color secundario">
+                        <input type="text" class="form-input form-input-sm" value="#7C3AED" id="brand-secondary-hex" aria-label="Valor hexadecimal del color secundario" pattern="#[0-9A-Fa-f]{6}">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Color acento</label>
+                    <label for="brand-accent">Color acento</label>
                     <div class="color-input-group">
-                        <input type="color" id="brand-accent" value="#F59E0B" class="color-picker">
-                        <input type="text" class="form-input form-input-sm" value="#F59E0B" id="brand-accent-hex">
+                        <input type="color" id="brand-accent" value="#F59E0B" class="color-picker" aria-label="Selector de color acento">
+                        <input type="text" class="form-input form-input-sm" value="#F59E0B" id="brand-accent-hex" aria-label="Valor hexadecimal del color acento" pattern="#[0-9A-Fa-f]{6}">
                     </div>
                 </div>
             </div>
@@ -109,22 +109,24 @@ async function uploadFiles(files) {
         formData.append('files[]', file);
     }
 
-    document.getElementById('upload-progress').style.display = 'block';
-    document.getElementById('upload-status').textContent = `Subiendo ${files.length} archivo(s)...`;
+    const progressEl = document.getElementById('upload-progress');
+    const statusEl   = document.getElementById('upload-status');
+    const fillEl     = document.getElementById('progress-fill');
+
+    progressEl.style.display = 'block';
+    fillEl.style.width = '0%';
+    statusEl.textContent = `Subiendo ${files.length} archivo(s)...`;
 
     try {
-        const response = await fetch('/api/v1/documents/upload', {
-            method: 'POST',
-            body: formData,
-        });
-        const data = await response.json();
+        const data = await AMR.api.upload('/api/v1/documents/upload', formData);
 
-        document.getElementById('progress-fill').style.width = '100%';
-        document.getElementById('upload-status').textContent = `✅ ${data.count} archivo(s) subidos`;
+        fillEl.style.width = '100%';
+        statusEl.textContent = `${data.count} archivo(s) subidos correctamente`;
 
         AMR.toast.success(`${data.count} archivos subidos correctamente`);
     } catch (err) {
-        document.getElementById('upload-status').textContent = '❌ Error subiendo archivos';
+        fillEl.style.width = '0%';
+        statusEl.textContent = 'Error subiendo archivos: ' + err.message;
         AMR.toast.error('Error: ' + err.message);
     }
 }

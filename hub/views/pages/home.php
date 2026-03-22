@@ -3,38 +3,38 @@
     <!-- Stat Cards -->
     <div class="stats-row" id="stats-row">
         <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(0,212,255,0.15); color: var(--amr-primary);">
-                <i class="fas fa-robot"></i>
+            <div class="stat-icon stat-icon-primary">
+                <i class="fas fa-robot" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
-                <span class="stat-value" id="stat-agents">—</span>
+                <span class="stat-value" id="stat-agents" aria-label="Agentes activos: cargando">—</span>
                 <span class="stat-label">Agentes Activos</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(124,58,237,0.15); color: var(--amr-secondary);">
-                <i class="fas fa-folder-open"></i>
+            <div class="stat-icon stat-icon-secondary">
+                <i class="fas fa-folder-open" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
-                <span class="stat-value" id="stat-projects">—</span>
+                <span class="stat-value" id="stat-projects" aria-label="Proyectos: cargando">—</span>
                 <span class="stat-label">Proyectos</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(16,185,129,0.15); color: var(--amr-success);">
-                <i class="fas fa-comments"></i>
+            <div class="stat-icon stat-icon-success">
+                <i class="fas fa-comments" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
-                <span class="stat-value" id="stat-conversations">—</span>
+                <span class="stat-value" id="stat-conversations" aria-label="Conversaciones AI: cargando">—</span>
                 <span class="stat-label">Conversaciones AI</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: var(--amr-accent);">
-                <i class="fas fa-file-alt"></i>
+            <div class="stat-icon stat-icon-accent">
+                <i class="fas fa-file-alt" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
-                <span class="stat-value" id="stat-documents">—</span>
+                <span class="stat-value" id="stat-documents" aria-label="Documentos: cargando">—</span>
                 <span class="stat-label">Documentos</span>
             </div>
         </div>
@@ -134,14 +134,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Actividad reciente
         const activityEl = document.getElementById('recent-activity');
         if (data.recent_chats && data.recent_chats.length > 0) {
+            // Escapar datos de la API antes de insertar en el DOM
+            const escHtml = (str) => {
+                const d = document.createElement('div');
+                d.textContent = String(str ?? '');
+                return d.innerHTML;
+            };
             activityEl.innerHTML = data.recent_chats.map(chat => `
                 <div class="activity-item">
-                    <i class="fas fa-comment activity-icon"></i>
+                    <i class="fas fa-comment activity-icon" aria-hidden="true"></i>
                     <div class="activity-info">
-                        <span class="activity-title">${chat.title || 'Conversación'}</span>
-                        <span class="activity-meta">${chat.provider} · ${chat.model}</span>
+                        <span class="activity-title">${escHtml(chat.title || 'Conversación')}</span>
+                        <span class="activity-meta">${escHtml(chat.provider)} · ${escHtml(chat.model)}</span>
                     </div>
-                    <span class="activity-time">${new Date(chat.created_at).toLocaleDateString('es')}</span>
+                    <span class="activity-time">${escHtml(new Date(chat.created_at).toLocaleDateString('es-CO'))}</span>
                 </div>
             `).join('');
         } else {
@@ -149,6 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (err) {
         console.error('Error cargando stats:', err);
+        document.getElementById('recent-activity').innerHTML =
+            '<p class="text-muted">No se pudo cargar la actividad reciente.</p>';
     }
 
     // Verificar proveedores
@@ -161,8 +169,12 @@ async function checkProviders() {
         providers.forEach(p => {
             const el = document.getElementById(`provider-${p.provider}`);
             if (el) {
-                el.textContent = p.available ? `✅ Activo (${p.models.length} modelos)` : '❌ No disponible';
+                const statusText = p.available
+                    ? `Activo (${p.models.length} modelo${p.models.length !== 1 ? 's' : ''})`
+                    : 'No disponible';
+                el.textContent = statusText;
                 el.className = `provider-status ${p.available ? 'active' : 'inactive'}`;
+                el.setAttribute('aria-label', `${p.provider}: ${statusText}`);
             }
         });
 

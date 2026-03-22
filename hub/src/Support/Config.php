@@ -53,7 +53,9 @@ final class Config
 
     public function has(string $key): bool
     {
-        return $this->get($key) !== null;
+        // Comparar contra un objeto sentinel para distinguir "clave ausente" de "valor null"
+        $sentinel = new \stdClass();
+        return $this->get($key, $sentinel) !== $sentinel;
     }
 
     public function all(): array

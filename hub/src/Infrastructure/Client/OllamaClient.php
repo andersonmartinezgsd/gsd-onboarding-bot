@@ -49,21 +49,29 @@ final class OllamaClient implements AiProviderInterface
         $payload = $request->toOllamaPayload();
         $payload['stream'] = true;
 
+        // Inicializar buffer ANTES de pasarlo por referencia al closure
+        $buffer = '';
+
         $ch = curl_init("{$this->baseUrl}/api/chat");
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => json_encode($payload),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_WRITEFUNCTION  => function ($ch, $data) use (&$buffer) {
+            CURLOPT_TIMEOUT        => 300,
+            CURLOPT_WRITEFUNCTION  => function ($ch, $data) use (&$buffer): int {
                 $buffer .= $data;
                 return strlen($data);
             },
         ]);
 
-        $buffer = '';
-        curl_exec($ch);
+        $success = curl_exec($ch);
         curl_close($ch);
+
+        // Si curl falló no hay nada que iterar
+        if ($success === false) {
+            return;
+        }
 
         foreach (explode("\n", $buffer) as $line) {
             $line = trim($line);

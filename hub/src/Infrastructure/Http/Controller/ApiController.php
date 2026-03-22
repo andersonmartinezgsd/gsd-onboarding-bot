@@ -62,8 +62,8 @@ final class ApiController
 
     public function aiChat(Request $request, array $params): Response
     {
-        // Las respuestas LLM pueden tardar varios minutos
-        set_time_limit(0);
+        // Límite razonable para respuestas LLM (5 minutos máximo)
+        set_time_limit(300);
 
         $body = $request->jsonBody();
         $prompt = $body['prompt'] ?? '';
@@ -74,6 +74,19 @@ final class ApiController
 
         if (empty($prompt)) {
             return Response::json(['error' => 'El prompt no puede estar vacío'], 400);
+        }
+
+        // Limitar tamaño del prompt para prevenir DoS
+        if (mb_strlen($prompt) > 32000) {
+            return Response::json(['error' => 'El prompt excede el límite de 32.000 caracteres'], 400);
+        }
+
+        // Validar conversationId: debe ser entero positivo o null
+        if ($conversationId !== null) {
+            $conversationId = filter_var($conversationId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($conversationId === false) {
+                return Response::json(['error' => 'conversation_id inválido'], 400);
+            }
         }
 
         $db = Database::getConnection();
@@ -214,7 +227,8 @@ final class ApiController
 
     public function generateAgent(Request $request, array $params): Response
     {
-        set_time_limit(0);
+        // Límite razonable para generación de agente con LLM
+        set_time_limit(300);
 
         $body = $request->jsonBody();
         $name = trim($body['name'] ?? '');
@@ -315,12 +329,26 @@ PROMPT;
         }
 
         $agentId = $agentData['agent_id'] ?? 'custom-agent';
+
+        // Sanitizar agentId: solo kebab-case alfanumérico para prevenir path traversal
+        $agentId = preg_replace('/[^a-zA-Z0-9\-]/', '', (string) $agentId);
+        if (empty($agentId)) {
+            $agentId = 'custom-agent';
+        }
+
         $opencodeMd = $agentData['opencode_md'] ?? '';
 
         // Si no hay opencode_md generado, crear uno básico
         if (empty($opencodeMd)) {
-            $caps = implode("\n", array_map(fn($c) => "- {$c}", $agentData['capabilities'] ?? []));
+            $caps = implode("\n", array_map(
+                fn($c) => '- ' . htmlspecialchars((string) $c, ENT_QUOTES, 'UTF-8'),
+                $agentData['capabilities'] ?? []
+            ));
             $tools = implode(', ', $agentData['tools'] ?? ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep']);
+
+            $agentName = htmlspecialchars($agentData['name'] ?? $agentId, ENT_QUOTES, 'UTF-8');
+            $agentDesc = $agentData['description'] ?? '';
+            $agentPrompt = $agentData['system_prompt'] ?? '';
 
             $opencodeMd = <<<MD
 ---
@@ -329,12 +357,12 @@ allowedTools:
   - {$tools}
 ---
 
-# {$agentData['name']}
+# {$agentName}
 
-{$agentData['description']}
+{$agentDesc}
 
 ## Rol
-{$agentData['system_prompt']}
+{$agentPrompt}
 
 ## Capacidades
 {$caps}
@@ -348,7 +376,12 @@ MD;
         }
 
         // Guardar el archivo .md en la carpeta de agentes de OpenCode
-        $agentsDir = $_SERVER['HOME'] . '/.config/opencode/agents';
+        // Usar HOME del entorno del servidor solo si existe y es un path absoluto válido
+        $homeDir = $_SERVER['HOME'] ?? '';
+        if (empty($homeDir) || !str_starts_with($homeDir, '/')) {
+            return Response::json(['error' => 'Directorio HOME no disponible en el servidor'], 500);
+        }
+        $agentsDir = $homeDir . '/.config/opencode/agents';
         if (!is_dir($agentsDir)) {
             mkdir($agentsDir, 0755, true);
         }
@@ -394,9 +427,26 @@ MD;
         $body = $request->jsonBody();
         $path = $body['path'] ?? '';
 
-        if (empty($path) || !is_dir($path)) {
+        if (empty($path)) {
             return Response::json(['error' => 'Ruta de proyecto no válida'], 400);
         }
+
+        // Resolver la ruta real para detectar path traversal
+        $realPath = realpath($path);
+        if ($realPath === false || !is_dir($realPath)) {
+            return Response::json(['error' => 'Ruta de proyecto no válida'], 400);
+        }
+
+        // Restringir a directorios que el proceso web pueda leer legitimamente.
+        // Rechazar rutas del sistema que nunca deben escanearse.
+        $forbiddenPrefixes = ['/', '/etc', '/usr', '/bin', '/sbin', '/var', '/sys', '/proc', '/root'];
+        foreach ($forbiddenPrefixes as $forbidden) {
+            if ($realPath === $forbidden) {
+                return Response::json(['error' => 'Ruta de proyecto no permitida'], 403);
+            }
+        }
+
+        $path = $realPath;
 
         $name = basename($path);
         $db = Database::getConnection();
@@ -465,10 +515,10 @@ MD;
         $id = (int) ($params['id'] ?? 0);
         $db = Database::getConnection();
 
-        $project = $db->prepare("SELECT * FROM projects WHERE id = ?")->execute([$id]);
-        $project = $db->prepare("SELECT * FROM projects WHERE id = ?");
-        $project->execute([$id]);
-        $project = $project->fetch();
+        // Bug corregido: había una doble llamada a prepare/execute que descartaba el resultado
+        $projectStmt = $db->prepare("SELECT * FROM projects WHERE id = ?");
+        $projectStmt->execute([$id]);
+        $project = $projectStmt->fetch();
 
         if (!$project) {
             return Response::json(['error' => 'Proyecto no encontrado'], 404);
@@ -495,18 +545,66 @@ MD;
         $uploadPath = dirname(__DIR__, 4) . '/storage/uploads';
         $uploaded = [];
 
+        // Extensiones permitidas por categoría (whitelist estricta)
+        $allowedExtensions = [
+            'image'    => ['jpg', 'jpeg', 'png', 'gif', 'webp'],  // svg excluido: riesgo XSS
+            'document' => ['pdf', 'txt', 'md', 'csv'],            // doc/docx/xlsx excluidos: macro risk
+            'video'    => ['mp4', 'webm', 'mov'],
+        ];
+
+        // Mapa de MIME types reales aceptados (verificados con finfo, no con el campo type del browser)
+        $allowedMimes = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+            'pdf'  => 'application/pdf',
+            'txt'  => 'text/plain',
+            'md'   => 'text/plain',
+            'csv'  => 'text/csv',
+            'mp4'  => 'video/mp4',
+            'webm' => 'video/webm',
+            'mov'  => 'video/quicktime',
+        ];
+
+        // Tamaño máximo: 50 MB
+        $maxSizeBytes = 50 * 1024 * 1024;
+
         foreach ($files as $file) {
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 continue;
             }
 
+            // Validar tamaño
+            if ($file['size'] > $maxSizeBytes) {
+                continue;
+            }
+
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            $fileType = match (true) {
-                in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp']) => 'image',
-                in_array($ext, ['pdf', 'doc', 'docx', 'txt', 'md', 'csv'])  => 'document',
-                in_array($ext, ['mp4', 'webm', 'mov'])                       => 'video',
-                default => 'document',
-            };
+
+            // Validar extensión contra whitelist
+            $fileType = null;
+            foreach ($allowedExtensions as $type => $exts) {
+                if (in_array($ext, $exts, true)) {
+                    $fileType = $type;
+                    break;
+                }
+            }
+
+            if ($fileType === null) {
+                // Extensión no permitida — descartar archivo
+                continue;
+            }
+
+            // Validar MIME real usando finfo (no el campo type del browser, que es falsificable)
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $realMime = $finfo->file($file['tmp_name']);
+
+            if (!isset($allowedMimes[$ext]) || $realMime !== $allowedMimes[$ext]) {
+                // MIME real no coincide con la extensión declarada — posible intento de bypass
+                continue;
+            }
 
             $subDir = match ($fileType) {
                 'image'    => 'images',
@@ -519,7 +617,9 @@ MD;
                 mkdir($destDir, 0755, true);
             }
 
-            $safeName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file['name']);
+            // Nombre seguro: timestamp + hash aleatorio + extensión validada.
+            // NO usar el nombre original para prevenir doble extensión y otros ataques.
+            $safeName = time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
             $destPath = "{$destDir}/{$safeName}";
 
             if (move_uploaded_file($file['tmp_name'], $destPath)) {
@@ -527,16 +627,16 @@ MD;
                     "INSERT INTO documents (file_name, file_path, file_type, mime_type, size_bytes) VALUES (?, ?, ?, ?, ?)"
                 );
                 $stmt->execute([
-                    $file['name'],
+                    basename($file['name']),  // nombre original solo para display, no para rutas
                     $destPath,
                     $fileType,
-                    $file['type'],
+                    $realMime,               // MIME verificado por finfo, no el del browser
                     $file['size'],
                 ]);
 
                 $uploaded[] = [
                     'id'        => (int) $db->lastInsertId(),
-                    'file_name' => $file['name'],
+                    'file_name' => basename($file['name']),
                     'file_type' => $fileType,
                     'size'      => $file['size'],
                 ];
@@ -604,9 +704,8 @@ MD;
 
             $lines = 0;
             $handle = fopen($path, 'r');
-            if ($handle) {
-                while (!feof($handle)) {
-                    fgets($handle);
+            if ($handle !== false) {
+                while (fgets($handle) !== false) {
                     $lines++;
                 }
                 fclose($handle);

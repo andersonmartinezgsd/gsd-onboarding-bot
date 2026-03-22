@@ -25,23 +25,28 @@
 </div>
 
 <!-- Modal: Crear Agente -->
-<div class="modal-overlay" id="create-modal" style="display:none">
+<div class="modal-overlay" id="create-modal" style="display:none"
+     role="dialog" aria-modal="true" aria-labelledby="modal-title-create">
     <div class="modal">
         <div class="modal-header">
-            <h3>Crear Nuevo Agente</h3>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <h3 id="modal-title-create">Crear Nuevo Agente</h3>
+            <button class="modal-close" onclick="closeModal()" aria-label="Cerrar modal">&times;</button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label>ID del agente</label>
-                <input type="text" id="new-agent-id" class="form-input" placeholder="mi-agente-custom">
+                <label for="new-agent-id">ID del agente</label>
+                <input type="text" id="new-agent-id" class="form-input" placeholder="mi-agente-custom"
+                       aria-describedby="agent-id-hint">
+                <span id="agent-id-hint" class="text-muted text-sm" style="display:block;margin-top:4px">
+                    Solo minúsculas, guiones. Ej: mi-agente-custom
+                </span>
             </div>
             <div class="form-group">
-                <label>Nombre</label>
+                <label for="new-agent-name">Nombre</label>
                 <input type="text" id="new-agent-name" class="form-input" placeholder="Mi Agente Custom">
             </div>
             <div class="form-group">
-                <label>Categoría</label>
+                <label for="new-agent-category">Categoría</label>
                 <select id="new-agent-category" class="form-select">
                     <option value="framework">🏗️ Framework</option>
                     <option value="marketing">📈 Marketing</option>
@@ -52,15 +57,15 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Icono (emoji)</label>
+                <label for="new-agent-icon">Icono (emoji)</label>
                 <input type="text" id="new-agent-icon" class="form-input" placeholder="🤖" value="🤖">
             </div>
             <div class="form-group">
-                <label>Descripción</label>
+                <label for="new-agent-desc">Descripción</label>
                 <textarea id="new-agent-desc" class="form-textarea" rows="3" placeholder="Descripción del agente..."></textarea>
             </div>
             <div class="form-group">
-                <label>System Prompt</label>
+                <label for="new-agent-prompt">System Prompt</label>
                 <textarea id="new-agent-prompt" class="form-textarea" rows="5" placeholder="Instrucciones del agente..."></textarea>
             </div>
         </div>
@@ -133,12 +138,34 @@ function chatWithAgent(agentId, agentName) {
 }
 
 function showCreateAgent() {
-    document.getElementById('create-modal').style.display = 'flex';
+    const modal = document.getElementById('create-modal');
+    modal.style.display = 'flex';
+    // Mover foco al primer campo del modal para accesibilidad de teclado
+    requestAnimationFrame(() => {
+        const firstInput = modal.querySelector('input, select, textarea, button');
+        if (firstInput) firstInput.focus();
+    });
 }
 
 function closeModal() {
     document.getElementById('create-modal').style.display = 'none';
+    // Devolver foco al botón que abrió el modal
+    const openBtn = document.querySelector('[onclick="showCreateAgent()"]');
+    if (openBtn) openBtn.focus();
 }
+
+// Cerrar modal con tecla Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('create-modal');
+        if (modal && modal.style.display !== 'none') closeModal();
+    }
+});
+
+// Cerrar modal al hacer click fuera
+document.getElementById('create-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+});
 
 async function createAgent() {
     const agent = {

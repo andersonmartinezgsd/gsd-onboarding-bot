@@ -40,6 +40,12 @@ final class CsrfToken
 
         $stored = $_SESSION[self::TOKEN_KEY] ?? '';
 
+        // Si no hay token en sesión o el token entrante está vacío, rechazar siempre.
+        // hash_equals('', '') devolvería true sin esta verificación.
+        if ($stored === '' || $token === '') {
+            return false;
+        }
+
         return hash_equals($stored, $token);
     }
 

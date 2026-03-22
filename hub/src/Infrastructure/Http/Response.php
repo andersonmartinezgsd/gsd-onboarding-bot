@@ -22,8 +22,19 @@ final class Response
 
     public static function json(array $data, int $statusCode = 200): self
     {
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+        // json_encode retorna false ante caracteres no serializables
+        if ($encoded === false) {
+            $encoded = json_encode(
+                ['error' => 'Error al serializar la respuesta: ' . json_last_error_msg()],
+                JSON_UNESCAPED_UNICODE
+            );
+            $statusCode = 500;
+        }
+
         return new self(
-            json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            (string) $encoded,
             $statusCode,
             ['Content-Type' => 'application/json; charset=utf-8']
         );

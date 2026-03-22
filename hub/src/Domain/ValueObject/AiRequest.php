@@ -71,13 +71,19 @@ final readonly class AiRequest
         $messages = [];
 
         foreach ($this->messages as $msg) {
+            // Anthropic NO acepta mensajes con role 'system' dentro del array messages.
+            // El system prompt va en el campo 'system' de nivel raíz.
+            // Filtrar cualquier mensaje de sistema para evitar errores 400 de la API.
+            if (($msg['role'] ?? '') === 'system') {
+                continue;
+            }
             $messages[] = $msg;
         }
 
         $payload = [
-            'model'      => $this->model,
-            'messages'   => $messages,
-            'max_tokens' => $this->maxTokens,
+            'model'       => $this->model,
+            'messages'    => $messages,
+            'max_tokens'  => $this->maxTokens,
             'temperature' => $this->temperature,
         ];
 

@@ -51,9 +51,12 @@ final class Router
         $method = $request->method();
         $uri = $request->uri();
 
-        // Soporte PUT/DELETE via _method
+        // Soporte PUT/DELETE via _method — solo métodos HTTP válidos
         if ($method === 'POST' && $request->input('_method')) {
-            $method = strtoupper($request->input('_method'));
+            $override = strtoupper((string) $request->input('_method'));
+            if (in_array($override, ['PUT', 'PATCH', 'DELETE'], true)) {
+                $method = $override;
+            }
         }
 
         $routes = $this->routes[$method] ?? [];
@@ -77,9 +80,9 @@ final class Router
                 try {
                     return $controller->{$action}($request, $params);
                 } catch (\Throwable $e) {
+                    // No exponer el mensaje de excepción al cliente
                     return Response::json([
-                        'error'   => 'Error interno del servidor',
-                        'message' => $e->getMessage(),
+                        'error' => 'Error interno del servidor',
                     ], 500);
                 }
             }

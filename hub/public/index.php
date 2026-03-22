@@ -17,16 +17,15 @@ set_exception_handler(function (\Throwable $e) {
     if ($isAjax) {
         http_response_code(500);
         header('Content-Type: application/json');
+        // Nunca exponer stack trace ni detalles internos en producción
         echo json_encode([
-            'error'   => 'Error interno del servidor',
-            'message' => $e->getMessage(),
-            'file'    => basename($e->getFile()),
-            'line'    => $e->getLine(),
+            'error' => 'Error interno del servidor',
         ]);
     } else {
         http_response_code(500);
         echo '<h1 style="color:#EF4444;font-family:Inter,sans-serif">Error del servidor</h1>';
-        echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
+        // No exponer mensaje de excepción al usuario final
+        echo '<p>Ocurrió un error inesperado. Por favor intenta de nuevo.</p>';
     }
     exit;
 });
@@ -50,6 +49,10 @@ $configPath = $basePath . '/config';
 $configFile = $configPath . '/config.php';
 
 if (!file_exists($configFile)) {
+    // Solo copiar si el ejemplo existe; evitar silenciar el error si ambos faltan
+    if (!file_exists($configPath . '/config.example.php')) {
+        throw new \RuntimeException('Archivo de configuración no encontrado. Crea config/config.php basándote en config.example.php');
+    }
     copy($configPath . '/config.example.php', $configFile);
 }
 

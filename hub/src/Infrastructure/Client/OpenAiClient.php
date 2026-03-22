@@ -69,7 +69,13 @@ final class OpenAiClient implements AiProviderInterface
         $response = curl_exec($ch);
         curl_close($ch);
 
+        // Si curl falló $response es false — no iterar
+        if ($response === false || !is_string($response)) {
+            return;
+        }
+
         foreach (explode("\n", $response) as $line) {
+            $line = trim($line);
             if (str_starts_with($line, 'data: ') && $line !== 'data: [DONE]') {
                 $json = json_decode(substr($line, 6), true);
                 $delta = $json['choices'][0]['delta']['content'] ?? '';
