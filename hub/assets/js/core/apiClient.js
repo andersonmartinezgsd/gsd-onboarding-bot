@@ -88,4 +88,66 @@ window.AMR.api = {
     },
 };
 
+// ── Utilidades de accesibilidad ────────────────────────────
+window.AMR.a11y = {
+    /**
+     * Trampa de foco real dentro de un elemento (para modales).
+     * Devuelve la función de limpieza para remover el listener.
+     *
+     * @param {HTMLElement} container - El modal o elemento contenedor
+     * @returns {Function} cleanup — llamar al cerrar el modal
+     */
+    trapFocus(container) {
+        const FOCUSABLE = [
+            'a[href]',
+            'button:not([disabled])',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+        ].join(', ');
+
+        function handleTab(e) {
+            if (e.key !== 'Tab') return;
+
+            const focusable = [...container.querySelectorAll(FOCUSABLE)];
+            if (focusable.length === 0) return;
+
+            const first = focusable[0];
+            const last  = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                // Shift+Tab: si estamos en el primero, saltar al último
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                // Tab: si estamos en el último, saltar al primero
+                if (document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        }
+
+        container.addEventListener('keydown', handleTab);
+        // Retornar cleanup
+        return () => container.removeEventListener('keydown', handleTab);
+    },
+};
+
+// ── Error boundary global para promesas no capturadas ──────
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('[AMR] Promesa no capturada:', event.reason);
+
+    // Mostrar toast de error si el sistema de notificaciones está disponible
+    if (window.AMR?.toast?.error) {
+        window.AMR.toast.error('Ocurrió un error inesperado. Intenta de nuevo.');
+    }
+
+    // Prevenir que el error aparezca en consola como "Uncaught"
+    event.preventDefault();
+});
+
 // window.AMR ya está asignado directamente

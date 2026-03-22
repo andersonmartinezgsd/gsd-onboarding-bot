@@ -137,18 +137,34 @@ function chatWithAgent(agentId, agentName) {
     window.location.href = `/ai-hub?agent=${agentId}`;
 }
 
+// Variable global para limpiar la trampa de foco al cerrar
+let _modalFocusCleanup = null;
+
 function showCreateAgent() {
     const modal = document.getElementById('create-modal');
     modal.style.display = 'flex';
-    // Mover foco al primer campo del modal para accesibilidad de teclado
+
     requestAnimationFrame(() => {
+        // Mover foco al primer campo del modal
         const firstInput = modal.querySelector('input, select, textarea, button');
         if (firstInput) firstInput.focus();
+
+        // Activar trampa de foco para ciclar Tab dentro del modal
+        if (window.AMR?.a11y?.trapFocus) {
+            _modalFocusCleanup = window.AMR.a11y.trapFocus(modal);
+        }
     });
 }
 
 function closeModal() {
+    // Liberar trampa de foco
+    if (_modalFocusCleanup) {
+        _modalFocusCleanup();
+        _modalFocusCleanup = null;
+    }
+
     document.getElementById('create-modal').style.display = 'none';
+
     // Devolver foco al botón que abrió el modal
     const openBtn = document.querySelector('[onclick="showCreateAgent()"]');
     if (openBtn) openBtn.focus();

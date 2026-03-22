@@ -8,28 +8,28 @@
 
 <!-- Wizard Steps -->
 <div class="factory-wizard">
-    <!-- Step indicators -->
-    <div class="wizard-steps">
-        <div class="wizard-step active" data-step="1">
-            <span class="step-number">1</span>
+    <!-- Step indicators — rol de lista de pasos para lectores de pantalla -->
+    <ol class="wizard-steps" aria-label="Pasos del wizard">
+        <li class="wizard-step active" data-step="1" aria-current="step">
+            <span class="step-number" aria-hidden="true">1</span>
             <span class="step-label">Identidad</span>
-        </div>
-        <div class="wizard-step-line"></div>
-        <div class="wizard-step" data-step="2">
-            <span class="step-number">2</span>
+        </li>
+        <li class="wizard-step-line" role="presentation"></li>
+        <li class="wizard-step" data-step="2">
+            <span class="step-number" aria-hidden="true">2</span>
             <span class="step-label">Skills</span>
-        </div>
-        <div class="wizard-step-line"></div>
-        <div class="wizard-step" data-step="3">
-            <span class="step-number">3</span>
+        </li>
+        <li class="wizard-step-line" role="presentation"></li>
+        <li class="wizard-step" data-step="3">
+            <span class="step-number" aria-hidden="true">3</span>
             <span class="step-label">Generar</span>
-        </div>
-        <div class="wizard-step-line"></div>
-        <div class="wizard-step" data-step="4">
-            <span class="step-number">4</span>
+        </li>
+        <li class="wizard-step-line" role="presentation"></li>
+        <li class="wizard-step" data-step="4">
+            <span class="step-number" aria-hidden="true">4</span>
             <span class="step-label">Integrar</span>
-        </div>
-    </div>
+        </li>
+    </ol>
 
     <!-- ═══ PASO 1: Identidad ═══ -->
     <div class="wizard-panel active" id="step-1">
@@ -39,20 +39,22 @@
             </div>
             <div class="card-body">
                 <div class="form-group">
-                    <label>Nombre del cargo o agente <span class="required">*</span></label>
-                    <input type="text" id="f-name" class="form-input form-input-lg" placeholder="Ej: Director de Marketing Digital, CTO, Community Manager, Analista SEO...">
-                    <span class="form-hint">Solo escribe el cargo — la AI se encarga del resto</span>
+                    <label for="f-name">Nombre del cargo o agente <span class="required">*</span></label>
+                    <input type="text" id="f-name" class="form-input form-input-lg"
+                           placeholder="Ej: Director de Marketing Digital, CTO, Community Manager, Analista SEO..."
+                           aria-required="true">
+                    <span class="form-hint" id="f-name-hint">Solo escribe el cargo — la AI se encarga del resto</span>
                 </div>
 
                 <div class="form-group">
-                    <label>Rol / Descripción rápida</label>
+                    <label for="f-role">Rol / Descripción rápida</label>
                     <input type="text" id="f-role" class="form-input" placeholder="Ej: Encargado de la estrategia digital y campañas publicitarias">
                     <span class="form-hint">Opcional — si lo dejas vacío la AI lo infiere del cargo</span>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Categoría</label>
+                        <label for="f-category">Categoría</label>
                         <select id="f-category" class="form-select">
                             <option value="marketing">📈 Marketing</option>
                             <option value="development">🏗️ Desarrollo</option>
@@ -70,7 +72,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Contexto adicional</label>
+                        <label for="f-context">Contexto adicional</label>
                         <input type="text" id="f-context" class="form-input" placeholder="Ej: Para empresa SaaS B2B, enfoque en Latinoamérica">
                     </div>
                 </div>
@@ -94,10 +96,12 @@
             <div class="card-body">
                 <!-- Skills con tags -->
                 <div class="form-group">
-                    <label>Skills / Habilidades <span class="required">*</span></label>
+                    <label for="f-skill-input">Skills / Habilidades <span class="required">*</span></label>
                     <div class="tag-input-container">
-                        <div class="tags-display" id="skills-tags"></div>
-                        <input type="text" id="f-skill-input" class="form-input" placeholder="Escribe un skill y presiona Enter..."
+                        <div class="tags-display" id="skills-tags" role="list" aria-label="Skills agregados"></div>
+                        <input type="text" id="f-skill-input" class="form-input"
+                               placeholder="Escribe un skill y presiona Enter..."
+                               aria-required="true"
                                onkeydown="if(event.key==='Enter'){event.preventDefault();addTag('skills',this)}">
                     </div>
                     <span class="form-hint">Enter para agregar · Ejemplos: SEO, copywriting, análisis de datos, diseño UI/UX</span>
@@ -143,10 +147,11 @@
 
                 <!-- Funciones con tags -->
                 <div class="form-group">
-                    <label>Funciones principales</label>
+                    <label for="f-function-input">Funciones principales</label>
                     <div class="tag-input-container">
-                        <div class="tags-display" id="functions-tags"></div>
-                        <input type="text" id="f-function-input" class="form-input" placeholder="Escribe una función y presiona Enter..."
+                        <div class="tags-display" id="functions-tags" role="list" aria-label="Funciones agregadas"></div>
+                        <input type="text" id="f-function-input" class="form-input"
+                               placeholder="Escribe una función y presiona Enter..."
                                onkeydown="if(event.key==='Enter'){event.preventDefault();addTag('functions',this)}">
                     </div>
                     <span class="form-hint">Ej: Crear campañas, analizar métricas, generar reportes, optimizar landing pages</span>
@@ -219,15 +224,15 @@
                     <div class="preview-edit-section">
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Agent ID</label>
+                                <label for="edit-agent-id">Agent ID</label>
                                 <input type="text" id="edit-agent-id" class="form-input form-input-mono">
                             </div>
                             <div class="form-group">
-                                <label>Icono</label>
+                                <label for="edit-icon">Icono</label>
                                 <input type="text" id="edit-icon" class="form-input" style="width:80px;font-size:24px;text-align:center">
                             </div>
                             <div class="form-group">
-                                <label>Modelo preferido</label>
+                                <label for="edit-model">Modelo preferido</label>
                                 <select id="edit-model" class="form-select">
                                     <option value="qwen3:8b">qwen3:8b (Local)</option>
                                     <option value="qwen3-coder">qwen3-coder (Local)</option>
@@ -241,17 +246,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Descripción</label>
+                            <label for="edit-desc">Descripción</label>
                             <textarea id="edit-desc" class="form-textarea" rows="2"></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>System Prompt <span class="text-muted text-sm">(editable)</span></label>
+                            <label for="edit-system-prompt">System Prompt <span class="text-muted text-sm">(editable)</span></label>
                             <textarea id="edit-system-prompt" class="form-textarea form-textarea-mono" rows="12"></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>OpenCode .md <span class="text-muted text-sm">(se guardará en ~/.config/opencode/agents/)</span></label>
+                            <label for="edit-opencode-md">OpenCode .md <span class="text-muted text-sm">(se guardará en ~/.config/opencode/agents/)</span></label>
                             <textarea id="edit-opencode-md" class="form-textarea form-textarea-mono" rows="10"></textarea>
                         </div>
                     </div>
@@ -485,12 +490,12 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    background: rgba(0,212,255,0.15);
+    background: var(--amr-primary-alpha-15);
     color: var(--amr-primary-light);
     padding: 4px 12px;
     border-radius: var(--radius-full);
     font-size: var(--text-xs);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     animation: tagIn 0.2s ease;
 }
 
@@ -558,11 +563,11 @@
 .tag-preset:hover {
     border-color: var(--amr-primary);
     color: var(--amr-primary);
-    background: rgba(0,212,255,0.08);
+    background: var(--amr-primary-alpha-08);
 }
 
 .tag-preset.added {
-    background: rgba(0,212,255,0.15);
+    background: var(--amr-primary-alpha-15);
     color: var(--amr-primary);
     border-color: var(--amr-primary);
 }
@@ -646,12 +651,12 @@
 }
 
 .preview-cap {
-    background: rgba(124,58,237,0.15);
-    color: #a78bfa;
+    background: var(--amr-secondary-alpha-15);
+    color: var(--amr-secondary-light);
     padding: 4px 12px;
     border-radius: var(--radius-full);
     font-size: var(--text-xs);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
 }
 
 .preview-edit-section {
@@ -748,11 +753,15 @@ function goToStep(step) {
 
     agentState.currentStep = step;
 
-    // Actualizar indicadores
+    // Actualizar indicadores + aria-current para lectores de pantalla
     document.querySelectorAll('.wizard-step').forEach(el => {
         const s = parseInt(el.dataset.step);
         el.classList.remove('active', 'completed');
-        if (s === step) el.classList.add('active');
+        el.removeAttribute('aria-current');
+        if (s === step) {
+            el.classList.add('active');
+            el.setAttribute('aria-current', 'step');
+        }
         if (s < step) el.classList.add('completed');
     });
 
@@ -794,12 +803,26 @@ function removeTag(type, index) {
 
 function renderTags(type) {
     const container = document.getElementById(`${type}-tags`);
-    container.innerHTML = agentState[type].map((tag, i) => `
-        <span class="tag-item">
-            ${tag}
-            <button class="tag-remove" onclick="removeTag('${type}',${i})">&times;</button>
-        </span>
-    `).join('');
+    container.innerHTML = '';
+
+    agentState[type].forEach((tag, i) => {
+        // Usar textContent para evitar XSS — el tag es input del usuario
+        const span = document.createElement('span');
+        span.className = 'tag-item';
+        span.setAttribute('role', 'listitem');
+
+        const text = document.createTextNode(tag);
+        span.appendChild(text);
+
+        const btn = document.createElement('button');
+        btn.className = 'tag-remove';
+        btn.setAttribute('aria-label', `Eliminar ${tag}`);
+        btn.textContent = '×';
+        btn.addEventListener('click', () => removeTag(type, i));
+        span.appendChild(btn);
+
+        container.appendChild(span);
+    });
 }
 
 // ═══ Generate Agent ═══
@@ -834,10 +857,16 @@ async function generateAgentWithAI() {
         document.getElementById('preview-category').textContent = data.agent.category || '—';
         document.getElementById('preview-desc').textContent = data.agent.description || '—';
 
+        // Renderizar capabilities con textContent para evitar XSS
         const caps = data.agent.capabilities || [];
-        document.getElementById('preview-caps').innerHTML = caps.map(c =>
-            `<span class="preview-cap">${c}</span>`
-        ).join('');
+        const capsContainer = document.getElementById('preview-caps');
+        capsContainer.innerHTML = '';
+        caps.forEach(cap => {
+            const span = document.createElement('span');
+            span.className = 'preview-cap';
+            span.textContent = cap;
+            capsContainer.appendChild(span);
+        });
 
         // Llenar campos editables
         document.getElementById('edit-agent-id').value = data.agent.agent_id || '';
@@ -876,16 +905,36 @@ async function integrateAgent() {
     try {
         const data = await AMR.api.post('/api/v1/agents/export-md', { agent });
 
-        document.getElementById('success-message').textContent = data.message;
-        document.getElementById('success-details').innerHTML = `
-            <div><strong>Agent ID:</strong> ${data.agent_id}</div>
-            <div><strong>Archivo .md:</strong> ${data.md_path}</div>
-            <div><strong>Base de datos:</strong> ✅ Registrado</div>
-            <div><strong>OpenCode:</strong> ✅ Integrado</div>
-            <div style="margin-top:8px;color:var(--amr-primary)">
-                Usa: <code>opencode --agent ${data.agent_id}</code>
-            </div>
-        `;
+        document.getElementById('success-message').textContent = data.message || '¡Completado!';
+
+        // Construir detalles con textContent para evitar XSS con datos de la API
+        const details = document.getElementById('success-details');
+        details.innerHTML = '';
+
+        const rows = [
+            ['Agent ID', data.agent_id ?? '—'],
+            ['Archivo .md', data.md_path ?? '—'],
+            ['Base de datos', '✅ Registrado'],
+            ['OpenCode', '✅ Integrado'],
+        ];
+        rows.forEach(([label, value]) => {
+            const div = document.createElement('div');
+            const strong = document.createElement('strong');
+            strong.textContent = label + ': ';
+            div.appendChild(strong);
+            div.appendChild(document.createTextNode(value));
+            details.appendChild(div);
+        });
+
+        // Línea del comando de uso
+        const cmdDiv = document.createElement('div');
+        cmdDiv.style.marginTop = '8px';
+        cmdDiv.style.color = 'var(--amr-primary)';
+        cmdDiv.appendChild(document.createTextNode('Usa: '));
+        const code = document.createElement('code');
+        code.textContent = `opencode --agent ${data.agent_id ?? ''}`;
+        cmdDiv.appendChild(code);
+        details.appendChild(cmdDiv);
 
         goToStep(4);
         AMR.toast.success('¡Agente integrado al sistema!');
