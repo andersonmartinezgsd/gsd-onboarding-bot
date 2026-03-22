@@ -22,6 +22,18 @@
     <!-- Design System AMR -->
     <link rel="stylesheet" href="/assets/css/design-system.css">
     <link rel="stylesheet" href="/assets/css/hub.css">
+
+    <!-- Datos del usuario logueado para JS — sin datos sensibles -->
+    <?php
+    $__authUser = \AmrHub\Support\Auth::user();
+    $__userJson = json_encode([
+        'id'    => $__authUser['id']    ?? null,
+        'name'  => $__authUser['name']  ?? '',
+        'email' => $__authUser['email'] ?? '',
+        'role'  => $__authUser['role']  ?? '',
+    ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE);
+    ?>
+    <script>window.__AMR_USER__ = <?= $__userJson ?>;</script>
 </head>
 <body>
     <!-- Skip to main content para accesibilidad de teclado -->

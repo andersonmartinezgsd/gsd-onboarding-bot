@@ -38,6 +38,7 @@ require $basePath . '/src/Support/Autoloader.php';
 \Autoloader::addNamespace('AmrHub\\', $basePath . '/src/');
 
 // ── Config ──────────────────────────────────────────
+use AmrHub\Support\Auth;
 use AmrHub\Support\Config;
 use AmrHub\Support\Database;
 use AmrHub\Support\Logger;
@@ -71,6 +72,27 @@ if (file_exists($schemaFile)) {
     if (!$tables) {
         $db->exec(file_get_contents($schemaFile));
         Logger::getInstance()->info('Schema de base de datos inicializada');
+    } else {
+        // Migración incremental: crear tabla users si no existe (instancias previas sin auth)
+        $usersTable = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")->fetch();
+        if (!$usersTable) {
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS users (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name            TEXT    NOT NULL,
+                    email           TEXT    NOT NULL UNIQUE,
+                    password_hash   TEXT    NOT NULL,
+                    role            TEXT    NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','editor','viewer')),
+                    avatar          TEXT    NULL,
+                    is_active       INTEGER NOT NULL DEFAULT 1,
+                    last_login_at   TEXT    NULL,
+                    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+                    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+            ");
+            Logger::getInstance()->info('Migración: tabla users creada');
+        }
     }
 }
 
@@ -87,11 +109,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// ── Auth — instalar usuario admin si la tabla users está vacía ──────
+Auth::install();
+
 // ── Views ───────────────────────────────────────────
 View::setBasePath($basePath . '/views');
 
 // ── Router ──────────────────────────────────────────
 $router = new Router();
+
+// Autenticación
+$authCtrl = \AmrHub\Infrastructure\Http\Controller\LoginController::class;
+$router->get('/login',  [$authCtrl, 'showLogin']);
+$router->post('/login',  [$authCtrl, 'processLogin']);
+$router->post('/logout', [$authCtrl, 'logout']);
 
 // Páginas (HTML)
 $router->get('/', [\AmrHub\Infrastructure\Http\Controller\DashboardController::class, 'index']);

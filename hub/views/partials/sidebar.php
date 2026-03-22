@@ -69,10 +69,86 @@
     </nav>
 
     <div class="sidebar-footer">
-        <div class="ai-status" role="status" aria-label="Estado de Ollama">
+        <?php
+        $currentUser = \AmrHub\Support\Auth::user();
+        if ($currentUser !== null):
+            // Generar inicial del nombre para el avatar
+            $nameInitial  = mb_strtoupper(mb_substr((string) $currentUser['name'], 0, 1, 'UTF-8'), 'UTF-8');
+            $userName     = htmlspecialchars((string) $currentUser['name'],  ENT_QUOTES, 'UTF-8');
+            $userEmail    = htmlspecialchars((string) $currentUser['email'], ENT_QUOTES, 'UTF-8');
+            $userRole     = htmlspecialchars((string) $currentUser['role'],  ENT_QUOTES, 'UTF-8');
+        ?>
+        <div class="sidebar-user" aria-label="Usuario actual">
+            <div class="sidebar-user-avatar" aria-hidden="true"><?= $nameInitial ?></div>
+            <div class="sidebar-user-info">
+                <div class="sidebar-user-name" title="<?= $userName ?>"><?= $userName ?></div>
+                <div class="sidebar-user-email" title="<?= $userEmail ?>"><?= $userEmail ?></div>
+            </div>
+            <span class="sidebar-user-role amr-badge amr-badge-primary" title="Rol: <?= $userRole ?>"><?= $userRole ?></span>
+        </div>
+        <?php endif; ?>
+        <div class="ai-status" role="status" aria-label="Estado de Ollama" style="margin-top: var(--space-3);">
             <span class="status-dot" id="ollama-status" aria-hidden="true"></span>
             <span class="status-text">Ollama</span>
         </div>
         <div class="footer-text">AMR Tech &copy; 2026</div>
     </div>
 </aside>
+
+<style>
+/* ── Usuario en sidebar footer ──────────────────────────── */
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--amr-bg-elevated);
+    border: 1px solid var(--amr-border);
+    margin-bottom: var(--space-3);
+}
+
+.sidebar-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: var(--amr-gradient-brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.sidebar-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-user-name {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--amr-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user-email {
+    font-size: var(--text-xs);
+    color: var(--amr-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user-role {
+    flex-shrink: 0;
+    font-size: 10px;
+    padding: 2px 6px;
+    text-transform: capitalize;
+}
+</style>

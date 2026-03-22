@@ -2,6 +2,21 @@
 -- AMR Hub · Schema SQLite · v1.0
 -- ═══════════════════════════════════════════════════
 
+-- Usuarios del sistema
+CREATE TABLE IF NOT EXISTS users (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL,
+    email           TEXT    NOT NULL UNIQUE,
+    password_hash   TEXT    NOT NULL,
+    role            TEXT    NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','editor','viewer')),
+    avatar          TEXT    NULL,
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    last_login_at   TEXT    NULL,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
 -- Proveedores AI configurados
 CREATE TABLE IF NOT EXISTS ai_providers (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -171,6 +186,12 @@ CREATE TABLE IF NOT EXISTS settings (
 -- ═══════════════════════════════════════════════════
 -- SEED DATA — Proveedores y Agentes iniciales
 -- ═══════════════════════════════════════════════════
+
+-- Usuario administrador por defecto
+-- Contraseña: Admin2025! — hash real generado por Auth::install() en el primer arranque
+-- Este registro se omite si ya existe (OR IGNORE), por lo tanto es idempotente
+INSERT OR IGNORE INTO users (name, email, password_hash, role) VALUES
+('Administrador', 'admin@amrtech.co', '__PLACEHOLDER__', 'admin');
 
 -- Proveedores AI
 INSERT OR IGNORE INTO ai_providers (name, label, base_url, is_active) VALUES

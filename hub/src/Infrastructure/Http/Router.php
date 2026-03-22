@@ -59,11 +59,28 @@ final class Router
             }
         }
 
+        // ── Autenticación — rutas públicas: /login, assets ────────────────
+        // Cualquier otra ruta requiere sesión activa.
+        $publicRoutes = ['/login'];
+        $isPublicRoute = in_array($uri, $publicRoutes, true)
+            || str_starts_with($uri, '/assets/');
+
+        if (!$isPublicRoute) {
+            $authRedirect = \AmrHub\Support\Auth::requireAuth($uri);
+            if ($authRedirect !== null) {
+                return $authRedirect;
+            }
+        }
+
         // ── Validación CSRF para rutas de mutación ─────────────────────────
         // Los endpoints de API JSON usan el header X-CSRF-Token enviado por apiClient.js.
         // Se valida en todas las rutas que modifican estado (POST/PUT/DELETE).
         // Las rutas GET son seguras por convención (no producen efectos secundarios).
-        if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+        // Rutas exentas de CSRF: /login (es el primer submit antes de tener token de sesión completo).
+        $csrfExempt = ['/login'];
+        if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)
+            && !in_array($uri, $csrfExempt, true)
+        ) {
             $csrfHeader = $request->header('x-csrf-token') ?? '';
             if (!\AmrHub\Support\CsrfToken::validate($csrfHeader)) {
                 return Response::json(['error' => 'Token CSRF inválido o ausente'], 403);
