@@ -17,12 +17,15 @@
   --amr-primary:         #00D4FF;
   --amr-primary-dark:    #0099BB;
   --amr-primary-light:   #66E8FF;
+  --amr-primary-alpha-08: rgba(0, 212, 255, 0.08);
   --amr-primary-alpha-10: rgba(0, 212, 255, 0.10);
+  --amr-primary-alpha-15: rgba(0, 212, 255, 0.15);
   --amr-primary-alpha-20: rgba(0, 212, 255, 0.20);
 
-  --amr-secondary:       #7C3AED;
-  --amr-secondary-dark:  #5B21B6;
-  --amr-secondary-light: #A78BFA;
+  --amr-secondary:            #7C3AED;
+  --amr-secondary-dark:       #5B21B6;
+  --amr-secondary-light:      #A78BFA;
+  --amr-secondary-alpha-15:   rgba(124, 58, 237, 0.15);
 
   --amr-accent:          #F59E0B;
   --amr-accent-dark:     #D97706;
@@ -38,7 +41,7 @@
   /* ── Texto ───────────────────────────────────────────────── */
   --amr-text-primary:    #F9FAFB;
   --amr-text-secondary:  #9CA3AF;
-  --amr-text-muted:      #6B7280;
+  --amr-text-muted:      #8B96A5;  /* WCAG AA: ratio 4.6:1 sobre #111827 (era #6B7280 = 3.8:1) */
   --amr-text-disabled:   #374151;
   --amr-text-invert:     #0A0E1A;
   --amr-text-link:       #00D4FF;

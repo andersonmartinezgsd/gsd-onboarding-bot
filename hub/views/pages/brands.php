@@ -41,35 +41,35 @@
         <div class="brand-form">
             <div class="form-row">
                 <div class="form-group">
-                    <label>Nombre de la marca</label>
+                    <label for="brand-name">Nombre de la marca</label>
                     <input type="text" id="brand-name" class="form-input" placeholder="AMR Tech">
                 </div>
                 <div class="form-group">
-                    <label>Descripción</label>
+                    <label for="brand-desc">Descripción</label>
                     <input type="text" id="brand-desc" class="form-input" placeholder="Automatización de ventas y marketplace tecnológico">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Color primario</label>
+                    <label for="brand-primary">Color primario</label>
                     <div class="color-input-group">
-                        <input type="color" id="brand-primary" value="#00D4FF" class="color-picker">
-                        <input type="text" class="form-input form-input-sm" value="#00D4FF" id="brand-primary-hex">
+                        <input type="color" id="brand-primary" value="#00D4FF" class="color-picker" aria-label="Selector de color primario">
+                        <input type="text" class="form-input form-input-sm" value="#00D4FF" id="brand-primary-hex" aria-label="Valor hexadecimal del color primario" pattern="#[0-9A-Fa-f]{6}">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Color secundario</label>
+                    <label for="brand-secondary">Color secundario</label>
                     <div class="color-input-group">
-                        <input type="color" id="brand-secondary" value="#7C3AED" class="color-picker">
-                        <input type="text" class="form-input form-input-sm" value="#7C3AED" id="brand-secondary-hex">
+                        <input type="color" id="brand-secondary" value="#7C3AED" class="color-picker" aria-label="Selector de color secundario">
+                        <input type="text" class="form-input form-input-sm" value="#7C3AED" id="brand-secondary-hex" aria-label="Valor hexadecimal del color secundario" pattern="#[0-9A-Fa-f]{6}">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Color acento</label>
+                    <label for="brand-accent">Color acento</label>
                     <div class="color-input-group">
-                        <input type="color" id="brand-accent" value="#F59E0B" class="color-picker">
-                        <input type="text" class="form-input form-input-sm" value="#F59E0B" id="brand-accent-hex">
+                        <input type="color" id="brand-accent" value="#F59E0B" class="color-picker" aria-label="Selector de color acento">
+                        <input type="text" class="form-input form-input-sm" value="#F59E0B" id="brand-accent-hex" aria-label="Valor hexadecimal del color acento" pattern="#[0-9A-Fa-f]{6}">
                     </div>
                 </div>
             </div>
@@ -109,22 +109,24 @@ async function uploadFiles(files) {
         formData.append('files[]', file);
     }
 
-    document.getElementById('upload-progress').style.display = 'block';
-    document.getElementById('upload-status').textContent = `Subiendo ${files.length} archivo(s)...`;
+    const progressEl = document.getElementById('upload-progress');
+    const statusEl   = document.getElementById('upload-status');
+    const fillEl     = document.getElementById('progress-fill');
+
+    progressEl.style.display = 'block';
+    fillEl.style.width = '0%';
+    statusEl.textContent = `Subiendo ${files.length} archivo(s)...`;
 
     try {
-        const response = await fetch('/api/v1/documents/upload', {
-            method: 'POST',
-            body: formData,
-        });
-        const data = await response.json();
+        const data = await AMR.api.upload('/api/v1/documents/upload', formData);
 
-        document.getElementById('progress-fill').style.width = '100%';
-        document.getElementById('upload-status').textContent = `✅ ${data.count} archivo(s) subidos`;
+        fillEl.style.width = '100%';
+        statusEl.textContent = `${data.count} archivo(s) subidos correctamente`;
 
         AMR.toast.success(`${data.count} archivos subidos correctamente`);
     } catch (err) {
-        document.getElementById('upload-status').textContent = '❌ Error subiendo archivos';
+        fillEl.style.width = '0%';
+        statusEl.textContent = 'Error subiendo archivos: ' + err.message;
         AMR.toast.error('Error: ' + err.message);
     }
 }
@@ -141,13 +143,29 @@ async function generateBrandGuide() {
         return;
     }
 
-    // Mostrar paleta
+    // Validar que los colores sean valores hex válidos antes de usarlos en CSS
+    const hexRegex = /^#[0-9A-Fa-f]{6}$/;
+    if (!hexRegex.test(primary) || !hexRegex.test(secondary) || !hexRegex.test(accent)) {
+        AMR.toast.error('Los colores deben ser valores hexadecimales válidos (#RRGGBB)');
+        return;
+    }
+
+    // Mostrar paleta — colores ya validados como hex seguro, se pueden usar en style
     document.getElementById('brand-result').style.display = 'block';
-    document.getElementById('palette-preview').innerHTML = `
-        <div class="palette-swatch" style="background:${primary}"><span>${primary}</span><small>Primario</small></div>
-        <div class="palette-swatch" style="background:${secondary}"><span>${secondary}</span><small>Secundario</small></div>
-        <div class="palette-swatch" style="background:${accent}"><span>${accent}</span><small>Acento</small></div>
-    `;
+    const paletteEl = document.getElementById('palette-preview');
+    paletteEl.innerHTML = '';
+    [[primary, 'Primario'], [secondary, 'Secundario'], [accent, 'Acento']].forEach(([color, label]) => {
+        const swatch = document.createElement('div');
+        swatch.className = 'palette-swatch';
+        swatch.style.background = color; // seguro: color es hex validado
+        const span = document.createElement('span');
+        span.textContent = color;
+        const small = document.createElement('small');
+        small.textContent = label;
+        swatch.appendChild(span);
+        swatch.appendChild(small);
+        paletteEl.appendChild(swatch);
+    });
 
     document.getElementById('brand-guide-content').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Generando guía de marca con AI...</p>';
 
@@ -179,7 +197,14 @@ Responde en español. Formato profesional.`;
             provider: 'ollama',
         });
 
-        let content = data.response.content;
+        // SEGURIDAD: escapar el contenido del LLM antes de formatearlo
+        function escBrand(str) {
+            const d = document.createElement('div');
+            d.textContent = String(str ?? '');
+            return d.innerHTML;
+        }
+
+        let content = escBrand(data.response.content);
         content = content.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
         content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         content = content.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
@@ -188,7 +213,12 @@ Responde en español. Formato profesional.`;
 
         document.getElementById('brand-guide-content').innerHTML = content;
     } catch (err) {
-        document.getElementById('brand-guide-content').innerHTML = `<p class="text-error">Error: ${err.message}</p>`;
+        const p = document.createElement('p');
+        p.className = 'text-error';
+        p.textContent = 'Error: ' + (err.message || 'Error desconocido');
+        const el = document.getElementById('brand-guide-content');
+        el.innerHTML = '';
+        el.appendChild(p);
     }
 }
 

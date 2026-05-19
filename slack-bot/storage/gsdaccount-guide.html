@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to Change Your GSD Password from Slack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amr-primary:        #00D4FF;
+      --amr-primary-dark:   #0099BB;
+      --amr-secondary:      #7C3AED;
+      --amr-bg-base:        #0A0E1A;
+      --amr-bg-surface:     #111827;
+      --amr-bg-elevated:    #1F2937;
+      --amr-bg-overlay:     #374151;
+      --amr-text-primary:   #F9FAFB;
+      --amr-text-secondary: #9CA3AF;
+      --amr-text-muted:     #6B7280;
+      --amr-border:         #1F2937;
+      --amr-success:        #10B981;
+      --amr-warning:        #F59E0B;
+      --amr-error:          #EF4444;
+      --amr-gradient-brand: linear-gradient(135deg, #00D4FF 0%, #7C3AED 100%);
+      --shadow-lg:          0 8px 32px rgba(0,212,255,.12);
+      --shadow-glow:        0 0 24px rgba(0,212,255,.25);
+      --radius-md:          10px;
+      --radius-lg:          16px;
+      --radius-xl:          24px;
+      --font-sans:          'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-mono:          'JetBrains Mono', monospace;
+      --font-display:       'Space Grotesk', 'Inter', sans-serif;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--amr-bg-base);
+      color: var(--amr-text-primary);
+      min-height: 100vh;
+      padding: 40px 16px 60px;
+    }
+
+    .wrapper {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--amr-bg-elevated);
+      border: 1px solid var(--amr-bg-overlay);
+      border-radius: 99px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amr-primary);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.2;
+      background: var(--amr-gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      color: var(--amr-text-secondary);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
+
+    .step {
+      background: var(--amr-bg-surface);
+      border: 1px solid var(--amr-bg-elevated);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+      transition: border-color 250ms ease, box-shadow 250ms ease;
+    }
+    .step:hover {
+      border-color: rgba(0,212,255,.3);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--amr-gradient-brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      color: #0A0E1A;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .step-title {
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--amr-text-primary);
+    }
+
+    .step-body {
+      color: var(--amr-text-secondary);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    /* ── Command chip ── */
+    .command-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--amr-bg-elevated);
+      border: 1px solid rgba(0,212,255,.25);
+      border-radius: var(--radius-md);
+      padding: 12px 20px;
+      margin: 14px 0;
+      box-shadow: 0 0 16px rgba(0,212,255,.08);
+    }
+    .command-chip code {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--amr-primary);
+    }
+    .command-chip span {
+      font-size: 12px;
+      color: var(--amr-text-muted);
+    }
+
+    /* ── Mock modal ── */
+    .mock-modal {
+      background: #1A1F2E;
+      border: 1px solid var(--amr-bg-overlay);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin: 16px 0;
+      box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    }
+    .mock-modal-header {
+      background: var(--amr-bg-elevated);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--amr-bg-overlay);
+    }
+    .mock-modal-header span {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .mock-modal-close {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--amr-bg-overlay);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--amr-text-muted);
+    }
+    .mock-modal-body { padding: 20px; }
+
+    .mock-account {
+      background: rgba(0,212,255,.06);
+      border: 1px solid rgba(0,212,255,.15);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--amr-text-secondary);
+      margin-bottom: 16px;
+    }
+    .mock-account strong { color: var(--amr-primary); font-family: var(--font-mono); font-size: 12px; }
+
+    .mock-field { margin-bottom: 14px; }
+    .mock-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amr-text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .mock-input {
+      width: 100%;
+      background: var(--amr-bg-elevated);
+      border: 1px solid var(--amr-bg-overlay);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: var(--amr-text-muted);
+      font-family: var(--font-sans);
+    }
+    .mock-field .hint {
+      font-size: 11px;
+      color: var(--amr-text-muted);
+      margin-top: 4px;
+    }
+    .mock-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--amr-bg-overlay);
+    }
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--amr-bg-overlay);
+      color: var(--amr-text-secondary);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: default;
+    }
+    .btn-submit {
+      background: var(--amr-gradient-brand);
+      border: none;
+      color: #0A0E1A;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: default;
+    }
+
+    /* ── Requirements ── */
+    .req-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    @media (max-width: 480px) { .req-list { grid-template-columns: 1fr; } }
+
+    .req-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--amr-bg-elevated);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--amr-text-secondary);
+    }
+    .req-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(16,185,129,.15);
+      border: 1px solid rgba(16,185,129,.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* ── Success message ── */
+    .success-msg {
+      background: rgba(16,185,129,.08);
+      border: 1px solid rgba(16,185,129,.25);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-top: 14px;
+    }
+    .success-msg .title {
+      font-weight: 600;
+      color: #10B981;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .success-msg .sub {
+      font-size: 12px;
+      color: var(--amr-text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ── Notes ── */
+    .notes {
+      background: var(--amr-bg-surface);
+      border: 1px solid var(--amr-bg-elevated);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+    .notes h3 {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--amr-warning);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .note-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--amr-bg-elevated);
+      font-size: 14px;
+      color: var(--amr-text-secondary);
+      line-height: 1.5;
+    }
+    .note-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .note-emoji { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      font-size: 13px;
+      color: var(--amr-text-muted);
+    }
+    .footer a {
+      color: var(--amr-primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .footer a:hover { text-decoration: underline; }
+
+    .divider {
+      height: 1px;
+      background: var(--amr-bg-elevated);
+      margin: 32px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="badge">🔐 IT Self-Service</div>
+      <h1>Change Your GSD Password<br>Directly from Slack</h1>
+      <p>No portal. No ticket. Just type a command and your password updates in seconds.</p>
+    </div>
+
+    <!-- Steps -->
+    <div class="steps">
+
+      <!-- Step 1 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">1</div>
+          <div class="step-title">Type the command in Slack</div>
+        </div>
+        <div class="step-body">
+          Open any channel or a direct message and type:
+          <div class="command-chip">
+            <code>/gsdaccount</code>
+            <span>then press Enter</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">2</div>
+          <div class="step-title">Fill in the password form</div>
+        </div>
+        <div class="step-body">
+          A window will open automatically showing your account:
+
+          <div class="mock-modal">
+            <div class="mock-modal-header">
+              <span>Change Password</span>
+              <div class="mock-modal-close">✕</div>
+            </div>
+            <div class="mock-modal-body">
+              <div class="mock-account">
+                🔑 &nbsp;Your account: <strong>firstname.lastname@gsdoutsources.com</strong>
+              </div>
+              <div class="mock-field">
+                <label>New Password</label>
+                <div class="mock-input">Enter new password</div>
+              </div>
+              <div class="mock-field">
+                <label>Confirm Password</label>
+                <div class="mock-input">Re-enter new password</div>
+                <div class="hint">Min 8 characters — uppercase, lowercase and at least one number.</div>
+              </div>
+              <div class="mock-actions">
+                <div class="btn-cancel">Cancel</div>
+                <div class="btn-submit">Update Password</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">3</div>
+          <div class="step-title">Your password must meet these requirements</div>
+        </div>
+        <div class="step-body">
+          <div class="req-list">
+            <div class="req-item"><div class="req-icon">✓</div>At least 8 characters</div>
+            <div class="req-item"><div class="req-icon">✓</div>At least 1 uppercase (A, B…)</div>
+            <div class="req-item"><div class="req-icon">✓</div>At least 1 lowercase (a, b…)</div>
+            <div class="req-item"><div class="req-icon">✓</div>At least 1 number (1, 2, 3…)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">4</div>
+          <div class="step-title">Click "Update Password" — done!</div>
+        </div>
+        <div class="step-body">
+          The bot will send you a confirmation in a direct message:
+          <div class="success-msg">
+            <div class="title">✅ Password updated successfully!</div>
+            <div class="sub">Account: firstname.lastname@gsdoutsources.com</div>
+          </div>
+          The change is effective immediately across all your GSD devices.
+        </div>
+      </div>
+
+    </div><!-- /steps -->
+
+    <div class="divider"></div>
+
+    <!-- Notes -->
+    <div class="notes">
+      <h3>⚠️ Important Notes</h3>
+      <div class="note-item">
+        <span class="note-emoji">👁️</span>
+        <span>The text you type is <strong style="color:#F9FAFB">visible while typing</strong>. Use this command from your own device, never on a shared or public screen.</span>
+      </div>
+      <div class="note-item">
+        <span class="note-emoji">🔒</span>
+        <span>You can only change <strong style="color:#F9FAFB">your own password</strong>. The bot detects your account automatically from your Slack profile.</span>
+      </div>
+      <div class="note-item">
+        <span class="note-emoji">🚨</span>
+        <span>If you receive a confirmation message <strong style="color:#F9FAFB">without having requested it</strong>, contact IT immediately — someone may have accessed your Slack.</span>
+      </div>
+      <div class="note-item">
+        <span class="note-emoji">🕐</span>
+        <span>The new password applies to <strong style="color:#F9FAFB">Google Workspace, Gmail, Drive and all GSD tools</strong> linked to your corporate account.</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      Need help? Reach out in <a href="#">#it-support</a> &nbsp;·&nbsp; GSD IT Team
+    </div>
+
+  </div>
+</body>
+</html>

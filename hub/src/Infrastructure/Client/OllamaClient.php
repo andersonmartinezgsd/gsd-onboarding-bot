@@ -17,6 +17,12 @@ final class OllamaClient implements AiProviderInterface
 
     public function __construct(string $baseUrl = 'http://localhost:11434')
     {
+        // SEGURIDAD (SSRF): solo aceptar URLs con esquema http/https.
+        // Esto previene esquemas como file://, gopher://, dict://, etc.
+        $parsed = parse_url($baseUrl);
+        if (!isset($parsed['scheme']) || !in_array(strtolower($parsed['scheme']), ['http', 'https'], true)) {
+            throw new \InvalidArgumentException('URL de Ollama inválida: solo se permiten esquemas http y https.');
+        }
         $this->baseUrl = rtrim($baseUrl, '/');
     }
 
@@ -49,21 +55,29 @@ final class OllamaClient implements AiProviderInterface
         $payload = $request->toOllamaPayload();
         $payload['stream'] = true;
 
+        // Inicializar buffer ANTES de pasarlo por referencia al closure
+        $buffer = '';
+
         $ch = curl_init("{$this->baseUrl}/api/chat");
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => json_encode($payload),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_WRITEFUNCTION  => function ($ch, $data) use (&$buffer) {
+            CURLOPT_TIMEOUT        => 300,
+            CURLOPT_WRITEFUNCTION  => function ($ch, $data) use (&$buffer): int {
                 $buffer .= $data;
                 return strlen($data);
             },
         ]);
 
-        $buffer = '';
-        curl_exec($ch);
+        $success = curl_exec($ch);
         curl_close($ch);
+
+        // Si curl falló no hay nada que iterar
+        if ($success === false) {
+            return;
+        }
 
         foreach (explode("\n", $buffer) as $line) {
             $line = trim($line);
@@ -98,6 +112,17 @@ final class OllamaClient implements AiProviderInterface
 
     public function isAvailable(): bool
     {
+        // Caché de disponibilidad en sesión con TTL de 30 segundos.
+        // Evita hacer una petición HTTP real en cada request del dashboard,
+        // lo que causaba bloqueos de 3 segundos cuando Ollama no respondía.
+        $cacheKey = 'availability_ollama';
+        $ttl = 30;
+        $now = time();
+
+        if (isset($_SESSION[$cacheKey]) && ($now - $_SESSION[$cacheKey]['ts']) < $ttl) {
+            return $_SESSION[$cacheKey]['available'];
+        }
+
         $ch = curl_init("{$this->baseUrl}/api/tags");
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -109,7 +134,11 @@ final class OllamaClient implements AiProviderInterface
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        return $response !== false && $httpCode === 200;
+        $available = $response !== false && $httpCode === 200;
+
+        $_SESSION[$cacheKey] = ['available' => $available, 'ts' => $now];
+
+        return $available;
     }
 
     public function getName(): string

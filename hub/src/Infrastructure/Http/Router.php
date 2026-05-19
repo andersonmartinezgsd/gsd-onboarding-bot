@@ -51,9 +51,40 @@ final class Router
         $method = $request->method();
         $uri = $request->uri();
 
-        // Soporte PUT/DELETE via _method
+        // Soporte PUT/DELETE via _method — solo métodos HTTP válidos
         if ($method === 'POST' && $request->input('_method')) {
-            $method = strtoupper($request->input('_method'));
+            $override = strtoupper((string) $request->input('_method'));
+            if (in_array($override, ['PUT', 'PATCH', 'DELETE'], true)) {
+                $method = $override;
+            }
+        }
+
+        // ── Autenticación — rutas públicas: /login, assets ────────────────
+        // Cualquier otra ruta requiere sesión activa.
+        $publicRoutes = ['/login'];
+        $isPublicRoute = in_array($uri, $publicRoutes, true)
+            || str_starts_with($uri, '/assets/');
+
+        if (!$isPublicRoute) {
+            $authRedirect = \AmrHub\Support\Auth::requireAuth($uri);
+            if ($authRedirect !== null) {
+                return $authRedirect;
+            }
+        }
+
+        // ── Validación CSRF para rutas de mutación ─────────────────────────
+        // Los endpoints de API JSON usan el header X-CSRF-Token enviado por apiClient.js.
+        // Se valida en todas las rutas que modifican estado (POST/PUT/DELETE).
+        // Las rutas GET son seguras por convención (no producen efectos secundarios).
+        // Rutas exentas de CSRF: /login (es el primer submit antes de tener token de sesión completo).
+        $csrfExempt = ['/login'];
+        if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)
+            && !in_array($uri, $csrfExempt, true)
+        ) {
+            $csrfHeader = $request->header('x-csrf-token') ?? '';
+            if (!\AmrHub\Support\CsrfToken::validate($csrfHeader)) {
+                return Response::json(['error' => 'Token CSRF inválido o ausente'], 403);
+            }
         }
 
         $routes = $this->routes[$method] ?? [];
@@ -65,21 +96,21 @@ final class Router
                 [$controllerClass, $action] = $route['handler'];
 
                 if (!class_exists($controllerClass)) {
-                    return Response::json(['error' => "Controlador no encontrado: {$controllerClass}"], 500);
+                    return Response::json(['error' => 'Error de configuración del servidor'], 500);
                 }
 
                 $controller = new $controllerClass();
 
                 if (!method_exists($controller, $action)) {
-                    return Response::json(['error' => "Acción no encontrada: {$action}"], 500);
+                    return Response::json(['error' => 'Error de configuración del servidor'], 500);
                 }
 
                 try {
                     return $controller->{$action}($request, $params);
                 } catch (\Throwable $e) {
+                    // No exponer el mensaje de excepción al cliente
                     return Response::json([
-                        'error'   => 'Error interno del servidor',
-                        'message' => $e->getMessage(),
+                        'error' => 'Error interno del servidor',
                     ], 500);
                 }
             }

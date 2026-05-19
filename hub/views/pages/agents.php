@@ -25,23 +25,28 @@
 </div>
 
 <!-- Modal: Crear Agente -->
-<div class="modal-overlay" id="create-modal" style="display:none">
+<div class="modal-overlay" id="create-modal" style="display:none"
+     role="dialog" aria-modal="true" aria-labelledby="modal-title-create">
     <div class="modal">
         <div class="modal-header">
-            <h3>Crear Nuevo Agente</h3>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <h3 id="modal-title-create">Crear Nuevo Agente</h3>
+            <button class="modal-close" onclick="closeModal()" aria-label="Cerrar modal">&times;</button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label>ID del agente</label>
-                <input type="text" id="new-agent-id" class="form-input" placeholder="mi-agente-custom">
+                <label for="new-agent-id">ID del agente</label>
+                <input type="text" id="new-agent-id" class="form-input" placeholder="mi-agente-custom"
+                       aria-describedby="agent-id-hint">
+                <span id="agent-id-hint" class="text-muted text-sm" style="display:block;margin-top:4px">
+                    Solo minúsculas, guiones. Ej: mi-agente-custom
+                </span>
             </div>
             <div class="form-group">
-                <label>Nombre</label>
+                <label for="new-agent-name">Nombre</label>
                 <input type="text" id="new-agent-name" class="form-input" placeholder="Mi Agente Custom">
             </div>
             <div class="form-group">
-                <label>Categoría</label>
+                <label for="new-agent-category">Categoría</label>
                 <select id="new-agent-category" class="form-select">
                     <option value="framework">🏗️ Framework</option>
                     <option value="marketing">📈 Marketing</option>
@@ -52,15 +57,15 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Icono (emoji)</label>
+                <label for="new-agent-icon">Icono (emoji)</label>
                 <input type="text" id="new-agent-icon" class="form-input" placeholder="🤖" value="🤖">
             </div>
             <div class="form-group">
-                <label>Descripción</label>
+                <label for="new-agent-desc">Descripción</label>
                 <textarea id="new-agent-desc" class="form-textarea" rows="3" placeholder="Descripción del agente..."></textarea>
             </div>
             <div class="form-group">
-                <label>System Prompt</label>
+                <label for="new-agent-prompt">System Prompt</label>
                 <textarea id="new-agent-prompt" class="form-textarea" rows="5" placeholder="Instrucciones del agente..."></textarea>
             </div>
         </div>
@@ -82,9 +87,20 @@ async function loadAgents() {
         allAgents = data.agents || [];
         renderAgents(allAgents);
     } catch (err) {
-        document.getElementById('agents-grid').innerHTML =
-            `<p class="text-error">Error cargando agentes: ${err.message}</p>`;
+        const p = document.createElement('p');
+        p.className = 'text-error';
+        p.textContent = 'Error cargando agentes: ' + (err.message || 'Error desconocido');
+        const grid = document.getElementById('agents-grid');
+        grid.innerHTML = '';
+        grid.appendChild(p);
     }
+}
+
+// Función de escape centralizada para texto plano en HTML
+function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str ?? '');
+    return d.innerHTML;
 }
 
 function renderAgents(agents) {
@@ -94,25 +110,31 @@ function renderAgents(agents) {
         return;
     }
 
+    // SEGURIDAD: todos los datos de la API se escapan antes de insertarse en innerHTML
     grid.innerHTML = agents.map(a => `
         <div class="agent-card ${a.status === 'active' ? '' : 'agent-inactive'}">
             <div class="agent-header">
-                <span class="agent-icon">${a.icon || '🤖'}</span>
-                <span class="agent-status-badge ${a.status}">${a.status === 'active' ? '🟢' : '🔴'}</span>
+                <span class="agent-icon">${esc(a.icon || '🤖')}</span>
+                <span class="agent-status-badge ${esc(a.status)}">${a.status === 'active' ? '🟢' : '🔴'}</span>
             </div>
-            <h4 class="agent-name">${a.name}</h4>
-            <span class="agent-category">${a.category}</span>
-            <p class="agent-desc">${a.description || 'Sin descripción'}</p>
+            <h4 class="agent-name">${esc(a.name)}</h4>
+            <span class="agent-category">${esc(a.category)}</span>
+            <p class="agent-desc">${esc(a.description || 'Sin descripción')}</p>
             <div class="agent-stats">
-                <span title="Tareas completadas"><i class="fas fa-check"></i> ${a.tasks_completed}</span>
-                <span title="Experiencia"><i class="fas fa-star"></i> ${a.xp} XP</span>
-                <span title="Nivel" class="agent-level">${a.level}</span>
+                <span title="Tareas completadas"><i class="fas fa-check"></i> ${esc(a.tasks_completed)}</span>
+                <span title="Experiencia"><i class="fas fa-star"></i> ${esc(a.xp)} XP</span>
+                <span title="Nivel" class="agent-level">${esc(a.level)}</span>
             </div>
             <div class="agent-actions">
-                <button class="btn btn-sm btn-ghost" onclick="chatWithAgent('${a.agent_id}', '${a.name}')">
+                <button class="btn btn-sm btn-ghost"
+                        data-agent-id="${esc(a.agent_id)}"
+                        data-agent-name="${esc(a.name)}"
+                        onclick="chatWithAgent(this.dataset.agentId, this.dataset.agentName)">
                     <i class="fas fa-comment"></i> Chat
                 </button>
-                <button class="btn btn-sm btn-ghost" onclick="assignTask('${a.id}')">
+                <button class="btn btn-sm btn-ghost"
+                        data-agent-db-id="${esc(a.id)}"
+                        onclick="assignTask(this.dataset.agentDbId)">
                     <i class="fas fa-tasks"></i> Tarea
                 </button>
             </div>
@@ -132,13 +154,51 @@ function chatWithAgent(agentId, agentName) {
     window.location.href = `/ai-hub?agent=${agentId}`;
 }
 
+// Variable global para limpiar la trampa de foco al cerrar
+let _modalFocusCleanup = null;
+
 function showCreateAgent() {
-    document.getElementById('create-modal').style.display = 'flex';
+    const modal = document.getElementById('create-modal');
+    modal.style.display = 'flex';
+
+    requestAnimationFrame(() => {
+        // Mover foco al primer campo del modal
+        const firstInput = modal.querySelector('input, select, textarea, button');
+        if (firstInput) firstInput.focus();
+
+        // Activar trampa de foco para ciclar Tab dentro del modal
+        if (window.AMR?.a11y?.trapFocus) {
+            _modalFocusCleanup = window.AMR.a11y.trapFocus(modal);
+        }
+    });
 }
 
 function closeModal() {
+    // Liberar trampa de foco
+    if (_modalFocusCleanup) {
+        _modalFocusCleanup();
+        _modalFocusCleanup = null;
+    }
+
     document.getElementById('create-modal').style.display = 'none';
+
+    // Devolver foco al botón que abrió el modal
+    const openBtn = document.querySelector('[onclick="showCreateAgent()"]');
+    if (openBtn) openBtn.focus();
 }
+
+// Cerrar modal con tecla Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('create-modal');
+        if (modal && modal.style.display !== 'none') closeModal();
+    }
+});
+
+// Cerrar modal al hacer click fuera
+document.getElementById('create-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+});
 
 async function createAgent() {
     const agent = {
@@ -163,5 +223,10 @@ async function createAgent() {
     } catch (err) {
         AMR.toast.error('Error creando agente: ' + err.message);
     }
+}
+
+// assignTask — stub hasta que el endpoint /api/v1/agents/{id}/tasks esté implementado
+function assignTask(agentDbId) {
+    AMR.toast.info(`Asignación de tareas próximamente (agente #${agentDbId})`);
 }
 </script>

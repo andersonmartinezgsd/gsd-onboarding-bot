@@ -1,0 +1,79 @@
+# =============================================================================
+# GSD Onboarding/Offboarding — Production Compose
+# Works on: Railway · any Linux/Mac/Windows server with Docker Desktop
+#
+# Usage:
+#   cp .env.example .env        # fill in your values
+#   docker compose up -d        # start all services
+#   docker compose logs -f      # follow logs
+#   docker compose down         # stop
+# =============================================================================
+
+services:
+
+  # ── PHP Dashboard (Hub) ──────────────────────────────────────────────────────
+  hub:
+    build:
+      context: ./hub
+      dockerfile: Dockerfile
+    image: gsd-hub:latest
+    container_name: gsd-hub
+    restart: unless-stopped
+    ports:
+      - "${HUB_PORT:-8081}:80"
+    volumes:
+      - hub_db:/var/www/html/storage/db
+      - hub_logs:/var/www/html/storage/logs
+      - hub_uploads:/var/www/html/storage/uploads
+      - hub_cache:/var/www/html/storage/cache
+    env_file: .env
+    environment:
+      - HUB_DB_SQLITE_PATH=/var/www/html/storage/db/amr_hub.sqlite
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - gsd-net
+
+  # ── Slack Bot (Node.js) ──────────────────────────────────────────────────────
+  slack-bot:
+    build:
+      context: ./slack-bot
+      dockerfile: Dockerfile
+    image: gsd-slack-bot:latest
+    container_name: gsd-slack-bot
+    restart: unless-stopped
+    ports:
+      - "${BOT_PORT:-3000}:3000"
+    volumes:
+      - bot_db:/app/storage/db
+      - bot_logs:/app/storage/logs
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/storage/db/onboarding.sqlite
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/healthz', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - gsd-net
+
+# ── Named volumes (persist data across container rebuilds) ─────────────────────
+volumes:
+  hub_db:
+  hub_logs:
+  hub_uploads:
+  hub_cache:
+  bot_db:
+  bot_logs:
+
+# ── Internal network ───────────────────────────────────────────────────────────
+networks:
+  gsd-net:
+    driver: bridge

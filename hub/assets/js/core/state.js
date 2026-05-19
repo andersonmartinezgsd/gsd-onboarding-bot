@@ -21,6 +21,18 @@ window.AMR.state = {
     on(key, callback) {
         if (!this._listeners[key]) this._listeners[key] = [];
         this._listeners[key].push(callback);
+        // Retornar función de cleanup para evitar memory leaks
+        return () => this.off(key, callback);
+    },
+
+    off(key, callback) {
+        if (!this._listeners[key]) return;
+        this._listeners[key] = this._listeners[key].filter(fn => fn !== callback);
+    },
+
+    reset() {
+        this._data = {};
+        this._listeners = {};
     },
 };
 

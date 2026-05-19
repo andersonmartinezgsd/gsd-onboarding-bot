@@ -119,6 +119,12 @@ final class Request
         return null;
     }
 
+    /**
+     * Normaliza los valores del array: solo hace trim de strings.
+     * NO se aplica htmlspecialchars aquí: escapar es responsabilidad de la capa
+     * de presentación (View), no del Request. Escapar en input rompe APIs JSON
+     * y comparaciones estrictas de valores.
+     */
     private function sanitizeArray(array $data): array
     {
         $sanitized = [];
@@ -126,7 +132,7 @@ final class Request
             if (is_array($value)) {
                 $sanitized[$key] = $this->sanitizeArray($value);
             } else {
-                $sanitized[$key] = htmlspecialchars(trim((string) $value), ENT_QUOTES, 'UTF-8');
+                $sanitized[$key] = is_string($value) ? trim($value) : $value;
             }
         }
         return $sanitized;

@@ -17,16 +17,15 @@ set_exception_handler(function (\Throwable $e) {
     if ($isAjax) {
         http_response_code(500);
         header('Content-Type: application/json');
+        // Nunca exponer stack trace ni detalles internos en producción
         echo json_encode([
-            'error'   => 'Error interno del servidor',
-            'message' => $e->getMessage(),
-            'file'    => basename($e->getFile()),
-            'line'    => $e->getLine(),
+            'error' => 'Error interno del servidor',
         ]);
     } else {
         http_response_code(500);
         echo '<h1 style="color:#EF4444;font-family:Inter,sans-serif">Error del servidor</h1>';
-        echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
+        // No exponer mensaje de excepción al usuario final
+        echo '<p>Ocurrió un error inesperado. Por favor intenta de nuevo.</p>';
     }
     exit;
 });
@@ -39,6 +38,7 @@ require $basePath . '/src/Support/Autoloader.php';
 \Autoloader::addNamespace('AmrHub\\', $basePath . '/src/');
 
 // ── Config ──────────────────────────────────────────
+use AmrHub\Support\Auth;
 use AmrHub\Support\Config;
 use AmrHub\Support\Database;
 use AmrHub\Support\Logger;
@@ -50,6 +50,10 @@ $configPath = $basePath . '/config';
 $configFile = $configPath . '/config.php';
 
 if (!file_exists($configFile)) {
+    // Solo copiar si el ejemplo existe; evitar silenciar el error si ambos faltan
+    if (!file_exists($configPath . '/config.example.php')) {
+        throw new \RuntimeException('Archivo de configuración no encontrado. Crea config/config.php basándote en config.example.php');
+    }
     copy($configPath . '/config.example.php', $configFile);
 }
 
@@ -68,19 +72,57 @@ if (file_exists($schemaFile)) {
     if (!$tables) {
         $db->exec(file_get_contents($schemaFile));
         Logger::getInstance()->info('Schema de base de datos inicializada');
+    } else {
+        // Migración incremental: crear tabla users si no existe (instancias previas sin auth)
+        $usersTable = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")->fetch();
+        if (!$usersTable) {
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS users (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name            TEXT    NOT NULL,
+                    email           TEXT    NOT NULL UNIQUE,
+                    password_hash   TEXT    NOT NULL,
+                    role            TEXT    NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','editor','viewer')),
+                    avatar          TEXT    NULL,
+                    is_active       INTEGER NOT NULL DEFAULT 1,
+                    last_login_at   TEXT    NULL,
+                    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+                    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+            ");
+            Logger::getInstance()->info('Migración: tabla users creada');
+        }
     }
 }
 
-// ── Session ─────────────────────────────────────────
+// ── Session — configuración segura antes de session_start() ─────────
 if (session_status() === PHP_SESSION_NONE) {
+    // Cookies de sesión solo accesibles por HTTP (no JavaScript)
+    ini_set('session.cookie_httponly', '1');
+    // SameSite=Lax previene CSRF desde sitios externos
+    ini_set('session.cookie_samesite', 'Lax');
+    // Forzar uso de cookies (nunca session ID en URL)
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid', '0');
+    // Regenerar ID al inicio para prevenir session fixation
     session_start();
 }
+
+// ── Auth — instalar usuario admin si la tabla users está vacía ──────
+Auth::install();
 
 // ── Views ───────────────────────────────────────────
 View::setBasePath($basePath . '/views');
 
 // ── Router ──────────────────────────────────────────
 $router = new Router();
+
+// Autenticación
+$authCtrl = \AmrHub\Infrastructure\Http\Controller\LoginController::class;
+$router->get('/login',  [$authCtrl, 'showLogin']);
+$router->post('/login',  [$authCtrl, 'processLogin']);
+$router->post('/logout', [$authCtrl, 'logout']);
 
 // Páginas (HTML)
 $router->get('/', [\AmrHub\Infrastructure\Http\Controller\DashboardController::class, 'index']);

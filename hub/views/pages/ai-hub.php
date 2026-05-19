@@ -13,34 +13,34 @@
     <!-- Panel central: Chat -->
     <div class="chat-main">
         <!-- Selector de modelo -->
-        <div class="model-selector">
+        <div class="model-selector" role="toolbar" aria-label="Configuración del modelo AI">
             <div class="selector-group">
-                <label>Proveedor:</label>
-                <select id="ai-provider" onchange="loadModels()">
-                    <option value="ollama">🦙 Ollama Local</option>
-                    <option value="openai">🤖 OpenAI</option>
-                    <option value="anthropic">🧠 Anthropic</option>
+                <label for="ai-provider">Proveedor:</label>
+                <select id="ai-provider" onchange="loadModels()" aria-label="Seleccionar proveedor AI">
+                    <option value="ollama">Ollama Local</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
                 </select>
             </div>
             <div class="selector-group">
-                <label>Modelo:</label>
-                <select id="ai-model">
+                <label for="ai-model">Modelo:</label>
+                <select id="ai-model" aria-label="Seleccionar modelo">
                     <option value="">Cargando...</option>
                 </select>
-                <button class="btn btn-sm btn-ghost" onclick="refreshProviders()" title="Recargar modelos" style="padding:4px 6px">
-                    <i class="fas fa-sync-alt"></i>
+                <button class="btn btn-sm btn-ghost" onclick="refreshProviders()" aria-label="Recargar lista de modelos">
+                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
                 </button>
             </div>
             <div class="selector-group">
-                <label>Agente:</label>
-                <select id="ai-agent">
+                <label for="ai-agent">Agente:</label>
+                <select id="ai-agent" aria-label="Seleccionar agente">
                     <option value="">Sin agente</option>
                 </select>
             </div>
         </div>
 
         <!-- Mensajes -->
-        <div class="chat-messages" id="chat-messages">
+        <div class="chat-messages" id="chat-messages" role="log" aria-label="Conversación con AI" aria-live="polite" aria-relevant="additions">
             <div class="welcome-message">
                 <div class="welcome-icon">⚡</div>
                 <h2>AMR Hub AI</h2>
@@ -65,20 +65,23 @@
         <!-- Input -->
         <div class="chat-input-area">
             <div class="input-wrapper">
+                <label for="chat-input" class="sr-only">Escribe tu mensaje para la AI</label>
                 <textarea
                     id="chat-input"
                     placeholder="Escribe tu mensaje..."
                     rows="1"
+                    aria-label="Mensaje para la AI"
+                    aria-describedby="chat-input-hint"
                     onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage()}"
                     oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,200)+'px'"
                 ></textarea>
-                <button class="send-btn" onclick="sendMessage()" id="send-btn">
-                    <i class="fas fa-paper-plane"></i>
+                <button class="send-btn" onclick="sendMessage()" id="send-btn" aria-label="Enviar mensaje">
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i>
                 </button>
             </div>
-            <div class="input-footer">
+            <div class="input-footer" id="chat-input-hint">
                 <span class="text-muted text-sm">Enter para enviar · Shift+Enter para nueva línea</span>
-                <span class="text-muted text-sm" id="token-count"></span>
+                <span class="text-muted text-sm" id="token-count" aria-live="polite"></span>
             </div>
         </div>
     </div>
@@ -244,20 +247,29 @@ async function sendMessage() {
     } catch (err) {
         const thinkingEl = document.getElementById('thinking-msg');
         if (thinkingEl) {
-            thinkingEl.querySelector('.message-content').innerHTML =
-                `<span class="text-error">Error: ${err.message || 'No se pudo conectar con el proveedor AI'}</span>`;
+            const errSpan = document.createElement('span');
+            errSpan.className = 'text-error';
+            errSpan.textContent = 'Error: ' + (err.message || 'No se pudo conectar con el proveedor AI');
+            thinkingEl.querySelector('.message-content').innerHTML = '';
+            thinkingEl.querySelector('.message-content').appendChild(errSpan);
             thinkingEl.removeAttribute('id');
         }
     }
 }
 
 function formatResponse(text) {
-    // Básico: convertir bloques de código
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
-    text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/\n/g, '<br>');
-    return text;
+    // SEGURIDAD: escapar el texto completo ANTES de aplicar cualquier transformación HTML.
+    // Esto previene XSS si el LLM devuelve HTML o scripts maliciosos.
+    const escaped = escapeHtml(text);
+
+    // Aplicar formato Markdown básico sobre texto ya escapado.
+    // Los grupos de captura no pueden contener HTML inyectado porque el texto fue escapado.
+    let result = escaped;
+    result = result.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
+    result = result.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+    result = result.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    result = result.replace(/\n/g, '<br>');
+    return result;
 }
 
 function escapeHtml(text) {

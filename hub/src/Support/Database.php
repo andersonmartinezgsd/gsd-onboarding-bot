@@ -23,11 +23,16 @@ final class Database
             $config = Config::getInstance();
             $driver = $config->get('database.driver', 'sqlite');
 
-            self::$connection = match ($driver) {
-                'sqlite' => self::createSqliteConnection($config),
-                'mysql'  => self::createMysqlConnection($config),
-                default  => throw new \RuntimeException("Driver de DB no soportado: {$driver}"),
-            };
+            try {
+                self::$connection = match ($driver) {
+                    'sqlite' => self::createSqliteConnection($config),
+                    'mysql'  => self::createMysqlConnection($config),
+                    default  => throw new \RuntimeException("Driver de DB no soportado: {$driver}"),
+                };
+            } catch (PDOException $e) {
+                // Envolver la excepción sin exponer DSN ni credenciales
+                throw new \RuntimeException('No se pudo conectar a la base de datos.', 0, $e);
+            }
         }
 
         return self::$connection;

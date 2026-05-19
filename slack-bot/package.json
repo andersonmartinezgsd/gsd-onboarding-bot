@@ -1,0 +1,32 @@
+{
+  "name": "onboarding-offboarding-bot",
+  "version": "1.0.0",
+  "description": "Slack bot to automate employee onboarding and offboarding workflows",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "preview": "node preview/server.js",
+    "preview:watch": "node --watch preview/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "node scripts/migrate-to-mysql.js",
+    "db:migrate:schema": "mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < database/schema.mysql.sql"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.1.0",
+    "@octokit/rest": "^21.0.2",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "mysql2": "^3.11.0",
+    "googleapis": "^144.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

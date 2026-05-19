@@ -62,8 +62,28 @@ final class ApiController
 
     public function aiChat(Request $request, array $params): Response
     {
-        // Las respuestas LLM pueden tardar varios minutos
-        set_time_limit(0);
+        // Límite razonable para respuestas LLM (5 minutos máximo)
+        set_time_limit(300);
+
+        // ── Rate limiting por sesión: máximo 30 requests/minuto (A04) ──────
+        $now    = time();
+        $window = 60;   // segundos
+        $limit  = 30;   // requests máximos por ventana
+
+        $rl = $_SESSION['rl_ai_chat'] ?? ['count' => 0, 'window_start' => $now];
+
+        if ($now - $rl['window_start'] >= $window) {
+            // Nueva ventana
+            $rl = ['count' => 1, 'window_start' => $now];
+        } else {
+            $rl['count']++;
+        }
+
+        $_SESSION['rl_ai_chat'] = $rl;
+
+        if ($rl['count'] > $limit) {
+            return Response::json(['error' => 'Demasiadas solicitudes. Espera un momento antes de continuar.'], 429);
+        }
 
         $body = $request->jsonBody();
         $prompt = $body['prompt'] ?? '';
@@ -74,6 +94,19 @@ final class ApiController
 
         if (empty($prompt)) {
             return Response::json(['error' => 'El prompt no puede estar vacío'], 400);
+        }
+
+        // Limitar tamaño del prompt para prevenir DoS
+        if (mb_strlen($prompt) > 32000) {
+            return Response::json(['error' => 'El prompt excede el límite de 32.000 caracteres'], 400);
+        }
+
+        // Validar conversationId: debe ser entero positivo o null
+        if ($conversationId !== null) {
+            $conversationId = filter_var($conversationId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($conversationId === false) {
+                return Response::json(['error' => 'conversation_id inválido'], 400);
+            }
         }
 
         $db = Database::getConnection();
@@ -88,9 +121,14 @@ final class ApiController
             $conversationId = (int) $db->lastInsertId();
         }
 
-        // Obtener historial de la conversación
+        // Obtener historial de la conversación — limitado a los últimos 40 mensajes
+        // (20 turnos de usuario+asistente) para evitar desbordamiento del context window
+        // de los LLMs y timeouts en conversaciones muy largas.
         $historyStmt = $db->prepare(
-            "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC"
+            "SELECT role, content FROM messages
+             WHERE conversation_id = ?
+             ORDER BY created_at ASC
+             LIMIT 40"
         );
         $historyStmt->execute([$conversationId]);
         $messages = $historyStmt->fetchAll();
@@ -189,6 +227,20 @@ final class ApiController
             }
         }
 
+        // Validar formato de agent_id: solo kebab-case alfanumérico (previene inyección de nombres peligrosos)
+        $agentId = (string) $body['agent_id'];
+        if (!preg_match('/^[a-z0-9][a-z0-9\-]{0,63}$/', $agentId)) {
+            return Response::json(['error' => 'agent_id solo puede contener letras minúsculas, números y guiones (máx 64 caracteres)'], 400);
+        }
+
+        // Limitar longitud de campos de texto libres
+        if (mb_strlen((string) ($body['name'] ?? '')) > 100) {
+            return Response::json(['error' => 'El nombre no puede superar 100 caracteres'], 400);
+        }
+        if (mb_strlen((string) ($body['system_prompt'] ?? '')) > 50_000) {
+            return Response::json(['error' => 'El system prompt no puede superar 50.000 caracteres'], 400);
+        }
+
         $db = Database::getConnection();
         $stmt = $db->prepare(
             "INSERT INTO agents (agent_id, name, category, description, system_prompt, icon, preferred_model)
@@ -214,7 +266,21 @@ final class ApiController
 
     public function generateAgent(Request $request, array $params): Response
     {
-        set_time_limit(0);
+        // Límite razonable para generación de agente con LLM
+        set_time_limit(300);
+
+        // Rate limiting: máximo 10 generaciones/minuto (operación costosa)
+        $now = time();
+        $rl  = $_SESSION['rl_generate_agent'] ?? ['count' => 0, 'window_start' => $now];
+        if ($now - $rl['window_start'] >= 60) {
+            $rl = ['count' => 1, 'window_start' => $now];
+        } else {
+            $rl['count']++;
+        }
+        $_SESSION['rl_generate_agent'] = $rl;
+        if ($rl['count'] > 10) {
+            return Response::json(['error' => 'Demasiadas solicitudes de generación. Espera un momento.'], 429);
+        }
 
         $body = $request->jsonBody();
         $name = trim($body['name'] ?? '');
@@ -292,9 +358,9 @@ PROMPT;
         $agentData = json_decode($content, true);
 
         if ($agentData === null) {
+            // No exponer el contenido raw del LLM en la respuesta de error (puede contener info interna)
             return Response::json([
-                'error'       => 'La AI no generó un JSON válido. Intenta de nuevo.',
-                'raw_content' => $content,
+                'error' => 'La AI no generó un JSON válido. Intenta de nuevo.',
             ], 422);
         }
 
@@ -315,12 +381,26 @@ PROMPT;
         }
 
         $agentId = $agentData['agent_id'] ?? 'custom-agent';
+
+        // Sanitizar agentId: solo kebab-case alfanumérico para prevenir path traversal
+        $agentId = preg_replace('/[^a-zA-Z0-9\-]/', '', (string) $agentId);
+        if (empty($agentId)) {
+            $agentId = 'custom-agent';
+        }
+
         $opencodeMd = $agentData['opencode_md'] ?? '';
 
         // Si no hay opencode_md generado, crear uno básico
         if (empty($opencodeMd)) {
-            $caps = implode("\n", array_map(fn($c) => "- {$c}", $agentData['capabilities'] ?? []));
+            $caps = implode("\n", array_map(
+                fn($c) => '- ' . htmlspecialchars((string) $c, ENT_QUOTES, 'UTF-8'),
+                $agentData['capabilities'] ?? []
+            ));
             $tools = implode(', ', $agentData['tools'] ?? ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep']);
+
+            $agentName = htmlspecialchars($agentData['name'] ?? $agentId, ENT_QUOTES, 'UTF-8');
+            $agentDesc = $agentData['description'] ?? '';
+            $agentPrompt = $agentData['system_prompt'] ?? '';
 
             $opencodeMd = <<<MD
 ---
@@ -329,12 +409,12 @@ allowedTools:
   - {$tools}
 ---
 
-# {$agentData['name']}
+# {$agentName}
 
-{$agentData['description']}
+{$agentDesc}
 
 ## Rol
-{$agentData['system_prompt']}
+{$agentPrompt}
 
 ## Capacidades
 {$caps}
@@ -347,13 +427,35 @@ allowedTools:
 MD;
         }
 
-        // Guardar el archivo .md en la carpeta de agentes de OpenCode
-        $agentsDir = $_SERVER['HOME'] . '/.config/opencode/agents';
+        // Guardar el archivo .md en la carpeta de agentes de OpenCode.
+        // $agentId ya fue sanitizado con preg_replace('/[^a-zA-Z0-9\-]/', '', ...) arriba.
+        // Usamos posix_getpwuid para obtener el HOME real del proceso, no $_SERVER['HOME']
+        // que puede ser manipulado en algunos setups CGI/FastCGI.
+        $processUid = posix_getuid();
+        $pwEntry    = posix_getpwuid($processUid);
+        $homeDir    = $pwEntry['dir'] ?? '';
+
+        if (empty($homeDir) || !str_starts_with($homeDir, '/')) {
+            return Response::json(['error' => 'Directorio HOME no disponible en el servidor'], 500);
+        }
+
+        $agentsDir = $homeDir . '/.config/opencode/agents';
         if (!is_dir($agentsDir)) {
             mkdir($agentsDir, 0755, true);
         }
 
-        $mdPath = "{$agentsDir}/{$agentId}.md";
+        // Verificar que el path resultante siga dentro del directorio esperado
+        $mdPath  = $agentsDir . '/' . $agentId . '.md';
+        $realDir = realpath($agentsDir);
+        if ($realDir === false || !str_starts_with(realpath(dirname($mdPath)) ?: '', $realDir)) {
+            return Response::json(['error' => 'Ruta de destino inválida'], 400);
+        }
+
+        // Limitar tamaño del contenido del .md para prevenir escritura de archivos masivos
+        if (mb_strlen($opencodeMd) > 100_000) {
+            return Response::json(['error' => 'El contenido del agente excede el límite permitido (100 KB)'], 400);
+        }
+
         file_put_contents($mdPath, $opencodeMd);
 
         // También guardar en el Framework local
@@ -361,7 +463,8 @@ MD;
         if (!is_dir($frameworkAgentsDir)) {
             mkdir($frameworkAgentsDir, 0755, true);
         }
-        file_put_contents("{$frameworkAgentsDir}/{$agentId}.md", $opencodeMd);
+        $frameworkMdPath = $frameworkAgentsDir . '/' . $agentId . '.md';
+        file_put_contents($frameworkMdPath, $opencodeMd);
 
         // Guardar en la DB
         $db = Database::getConnection();
@@ -391,12 +494,48 @@ MD;
 
     public function scanProject(Request $request, array $params): Response
     {
+        // Rate limiting: máximo 5 escaneos/minuto (operación de I/O intensiva)
+        $now = time();
+        $rl  = $_SESSION['rl_scan_project'] ?? ['count' => 0, 'window_start' => $now];
+        if ($now - $rl['window_start'] >= 60) {
+            $rl = ['count' => 1, 'window_start' => $now];
+        } else {
+            $rl['count']++;
+        }
+        $_SESSION['rl_scan_project'] = $rl;
+        if ($rl['count'] > 5) {
+            return Response::json(['error' => 'Demasiados escaneos. Espera un momento.'], 429);
+        }
+
         $body = $request->jsonBody();
         $path = $body['path'] ?? '';
 
-        if (empty($path) || !is_dir($path)) {
+        if (empty($path)) {
             return Response::json(['error' => 'Ruta de proyecto no válida'], 400);
         }
+
+        // Resolver la ruta real para detectar path traversal
+        $realPath = realpath($path);
+        if ($realPath === false || !is_dir($realPath)) {
+            return Response::json(['error' => 'Ruta de proyecto no válida'], 400);
+        }
+
+        // Restringir a directorios que el proceso web pueda leer legítimamente.
+        // Rechazar rutas del sistema operativo que nunca deben escanearse.
+        // Se usa str_starts_with para bloquear /etc, /etc/passwd, /etc/nginx/... etc.
+        $forbiddenPrefixes = ['/etc', '/usr', '/bin', '/sbin', '/var', '/sys', '/proc', '/root', '/boot', '/dev', '/lib', '/lib64'];
+        foreach ($forbiddenPrefixes as $forbidden) {
+            // Bloquear la ruta exacta Y cualquier subdirectorio de ella
+            if ($realPath === $forbidden || str_starts_with($realPath, $forbidden . '/')) {
+                return Response::json(['error' => 'Ruta de proyecto no permitida'], 403);
+            }
+        }
+        // Adicionalmente, rechazar la raíz del sistema de archivos
+        if ($realPath === '/') {
+            return Response::json(['error' => 'Ruta de proyecto no permitida'], 403);
+        }
+
+        $path = $realPath;
 
         $name = basename($path);
         $db = Database::getConnection();
@@ -411,7 +550,9 @@ MD;
         // Escanear archivos
         $scanResult = $this->scanDirectory($path);
 
-        // Guardar archivos escaneados
+        // Guardar archivos escaneados en una única transacción para atomicidad y performance.
+        // Sin transacción, N inserts individuales en SQLite son O(N) más lentos y pueden
+        // dejar datos parciales si el proceso falla a mitad del escaneo.
         $insertFile = $db->prepare(
             "INSERT INTO project_files (project_id, file_path, language, line_count, size_bytes, category)
              VALUES (?, ?, ?, ?, ?, ?)"
@@ -422,32 +563,42 @@ MD;
         $languages = [];
         $issues = 0;
 
-        foreach ($scanResult as $file) {
-            $insertFile->execute([
-                $projectId,
-                $file['relative_path'],
-                $file['language'],
-                $file['lines'],
-                $file['size'],
-                $file['category'],
-            ]);
+        $db->beginTransaction();
+        try {
+            foreach ($scanResult as $file) {
+                $insertFile->execute([
+                    $projectId,
+                    $file['relative_path'],
+                    $file['language'],
+                    $file['lines'],
+                    $file['size'],
+                    $file['category'],
+                ]);
 
-            $totalFiles++;
-            $totalLines += $file['lines'];
+                $totalFiles++;
+                $totalLines += $file['lines'];
 
-            if ($file['language'] !== null) {
-                $languages[$file['language']] = ($languages[$file['language']] ?? 0) + $file['lines'];
+                if ($file['language'] !== null) {
+                    $languages[$file['language']] = ($languages[$file['language']] ?? 0) + $file['lines'];
+                }
+
+                if ($file['lines'] > 200) {
+                    $issues++;
+                }
             }
 
-            if ($file['lines'] > 200) {
-                $issues++;
-            }
+            // Actualizar proyecto dentro de la misma transacción
+            $db->prepare(
+                "UPDATE projects SET total_files = ?, total_lines = ?, languages_json = ?, issues_count = ?, scan_status = 'complete', updated_at = datetime('now') WHERE id = ?"
+            )->execute([$totalFiles, $totalLines, json_encode($languages), $issues, $projectId]);
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            // Marcar el proyecto con error y relanzar para el handler global
+            $db->prepare("UPDATE projects SET scan_status = 'error' WHERE id = ?")->execute([$projectId]);
+            throw $e;
         }
-
-        // Actualizar proyecto
-        $db->prepare(
-            "UPDATE projects SET total_files = ?, total_lines = ?, languages_json = ?, issues_count = ?, scan_status = 'complete', updated_at = datetime('now') WHERE id = ?"
-        )->execute([$totalFiles, $totalLines, json_encode($languages), $issues, $projectId]);
 
         return Response::json([
             'project_id'  => $projectId,
@@ -465,16 +616,22 @@ MD;
         $id = (int) ($params['id'] ?? 0);
         $db = Database::getConnection();
 
-        $project = $db->prepare("SELECT * FROM projects WHERE id = ?")->execute([$id]);
-        $project = $db->prepare("SELECT * FROM projects WHERE id = ?");
-        $project->execute([$id]);
-        $project = $project->fetch();
+        $projectStmt = $db->prepare(
+            "SELECT id, name, path, total_files, total_lines, languages_json,
+                    issues_count, scan_status, report_json, created_at, updated_at
+             FROM projects WHERE id = ?"
+        );
+        $projectStmt->execute([$id]);
+        $project = $projectStmt->fetch();
 
         if (!$project) {
             return Response::json(['error' => 'Proyecto no encontrado'], 404);
         }
 
-        $files = $db->prepare("SELECT * FROM project_files WHERE project_id = ? ORDER BY line_count DESC");
+        $files = $db->prepare(
+            "SELECT id, file_path, language, line_count, size_bytes, category
+             FROM project_files WHERE project_id = ? ORDER BY line_count DESC"
+        );
         $files->execute([$id]);
 
         return Response::json([
@@ -495,18 +652,66 @@ MD;
         $uploadPath = dirname(__DIR__, 4) . '/storage/uploads';
         $uploaded = [];
 
+        // Extensiones permitidas por categoría (whitelist estricta)
+        $allowedExtensions = [
+            'image'    => ['jpg', 'jpeg', 'png', 'gif', 'webp'],  // svg excluido: riesgo XSS
+            'document' => ['pdf', 'txt', 'md', 'csv'],            // doc/docx/xlsx excluidos: macro risk
+            'video'    => ['mp4', 'webm', 'mov'],
+        ];
+
+        // Mapa de MIME types reales aceptados (verificados con finfo, no con el campo type del browser)
+        $allowedMimes = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+            'pdf'  => 'application/pdf',
+            'txt'  => 'text/plain',
+            'md'   => 'text/plain',
+            'csv'  => 'text/csv',
+            'mp4'  => 'video/mp4',
+            'webm' => 'video/webm',
+            'mov'  => 'video/quicktime',
+        ];
+
+        // Tamaño máximo: 50 MB
+        $maxSizeBytes = 50 * 1024 * 1024;
+
         foreach ($files as $file) {
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 continue;
             }
 
+            // Validar tamaño
+            if ($file['size'] > $maxSizeBytes) {
+                continue;
+            }
+
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            $fileType = match (true) {
-                in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp']) => 'image',
-                in_array($ext, ['pdf', 'doc', 'docx', 'txt', 'md', 'csv'])  => 'document',
-                in_array($ext, ['mp4', 'webm', 'mov'])                       => 'video',
-                default => 'document',
-            };
+
+            // Validar extensión contra whitelist
+            $fileType = null;
+            foreach ($allowedExtensions as $type => $exts) {
+                if (in_array($ext, $exts, true)) {
+                    $fileType = $type;
+                    break;
+                }
+            }
+
+            if ($fileType === null) {
+                // Extensión no permitida — descartar archivo
+                continue;
+            }
+
+            // Validar MIME real usando finfo (no el campo type del browser, que es falsificable)
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $realMime = $finfo->file($file['tmp_name']);
+
+            if (!isset($allowedMimes[$ext]) || $realMime !== $allowedMimes[$ext]) {
+                // MIME real no coincide con la extensión declarada — posible intento de bypass
+                continue;
+            }
 
             $subDir = match ($fileType) {
                 'image'    => 'images',
@@ -519,7 +724,9 @@ MD;
                 mkdir($destDir, 0755, true);
             }
 
-            $safeName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file['name']);
+            // Nombre seguro: timestamp + hash aleatorio + extensión validada.
+            // NO usar el nombre original para prevenir doble extensión y otros ataques.
+            $safeName = time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
             $destPath = "{$destDir}/{$safeName}";
 
             if (move_uploaded_file($file['tmp_name'], $destPath)) {
@@ -527,16 +734,16 @@ MD;
                     "INSERT INTO documents (file_name, file_path, file_type, mime_type, size_bytes) VALUES (?, ?, ?, ?, ?)"
                 );
                 $stmt->execute([
-                    $file['name'],
+                    basename($file['name']),  // nombre original solo para display, no para rutas
                     $destPath,
                     $fileType,
-                    $file['type'],
+                    $realMime,               // MIME verificado por finfo, no el del browser
                     $file['size'],
                 ]);
 
                 $uploaded[] = [
                     'id'        => (int) $db->lastInsertId(),
-                    'file_name' => $file['name'],
+                    'file_name' => basename($file['name']),
                     'file_type' => $fileType,
                     'size'      => $file['size'],
                 ];
@@ -604,9 +811,8 @@ MD;
 
             $lines = 0;
             $handle = fopen($path, 'r');
-            if ($handle) {
-                while (!feof($handle)) {
-                    fgets($handle);
+            if ($handle !== false) {
+                while (fgets($handle) !== false) {
                     $lines++;
                 }
                 fclose($handle);

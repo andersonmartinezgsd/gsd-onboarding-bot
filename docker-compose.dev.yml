@@ -1,0 +1,37 @@
+# =============================================================================
+# GSD — Local Development Override
+# Adds hot-reload bind mounts on top of the base compose.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Or with the Makefile shortcut:
+#   make dev
+# =============================================================================
+
+services:
+
+  hub:
+    volumes:
+      # Live-reload: code changes reflect immediately (Apache serves directly)
+      - ./hub/src:/var/www/html/src
+      - ./hub/views:/var/www/html/views
+      - ./hub/assets:/var/www/html/assets
+      - ./hub/config:/var/www/html/config
+      # Persist local DB/logs in the repo folder for easy inspection
+      - ./hub/storage/db:/var/www/html/storage/db
+      - ./hub/storage/logs:/var/www/html/storage/logs
+      - ./hub/storage/uploads:/var/www/html/storage/uploads
+      - ./hub/storage/cache:/var/www/html/storage/cache
+    environment:
+      - HUB_APP_DEBUG=true
+
+  slack-bot:
+    # Node --watch restarts the process on file changes (Node 18+)
+    command: ["node", "--watch", "src/server.js"]
+    volumes:
+      - ./slack-bot/src:/app/src
+      - ./slack-bot/storage:/app/storage
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
