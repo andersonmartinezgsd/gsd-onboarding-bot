@@ -246,3 +246,12 @@ onboarding-offboarding/
     │   └── config.example.php  ← reads from $_ENV — copy as config.php
     └── src/                    ← PSR-12 SOLID PHP application
 ```
+
+---
+
+## Credits
+
+Built and maintained by **Anderson Martinez** ([@andersonmartinezgsd](https://github.com/andersonmartinezgsd))
+for **[GSD Outsources](https://gsdoutsources.com)** — IT & Operations Team.
+
+> Engineered with [Claude Code](https://claude.ai/claude-code) · May 2025
