@@ -1,0 +1,23 @@
+node_modules/
+.env
+.env.local
+
+# Base de datos (nunca al repo)
+storage/db/*.sqlite
+storage/db/*.sqlite-shm
+storage/db/*.sqlite-wal
+
+# Logs
+*.log
+storage/logs/
+
+# macOS
+.DS_Store
+.DS_Store?
+
+# Editor
+.vscode/
+.idea/
+
+# Carpeta de memoria de Claude Code
+:memory:

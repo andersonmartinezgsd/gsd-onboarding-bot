@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSD Onboarding/Offboarding — Preview</title>
+<style>
+  :root {
+    --slack-purple: #4A154B;
+    --slack-green: #007a5a;
+    --slack-red: #e01e5a;
+    --slack-yellow: #ecb22e;
+    --slack-blue: #1264a3;
+    --slack-bg: #f8f8f8;
+    --msg-bg: #fff;
+    --border: #e0e0e0;
+    --text: #1d1c1d;
+    --muted: #616061;
+    --check: #007a5a;
+    --pending: #999;
+    --running: #ecb22e;
+    --fail: #e01e5a;
+    --radius: 8px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--slack-bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+
+  /* Top bar */
+  .topbar {
+    background: var(--slack-purple);
+    color: #fff;
+    padding: 0 24px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
+  .topbar .badge {
+    background: rgba(255,255,255,.15);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  /* Layout */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Sidebar / Form panel */
+  .sidebar {
+    width: 360px;
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all .15s;
+  }
+  .sidebar-tab.active {
+    color: var(--slack-purple);
+    border-bottom-color: var(--slack-purple);
+  }
+  .sidebar-tab:hover:not(.active) { background: var(--slack-bg); }
+
+  .form-panel { padding: 20px; flex: 1; }
+  .form-panel.hidden { display: none; }
+
+  .form-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .form-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+  .field label .hint { font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .field input, .field select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: var(--font); outline: none; }
+  .field input:focus, .field select:focus { border-color: var(--slack-purple); box-shadow: 0 0 0 2px rgba(74,21,75,.15); }
+  .field .hint-text { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* Tools checkboxes */
+  .tools-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    background: var(--slack-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 230px;
+    overflow-y: auto;
+  }
+  .tool-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .tool-item:hover { background: #fff; }
+  .tool-item.required { opacity: .7; }
+  .tool-item input[type=checkbox] { margin-top: 2px; width: 15px; height: 15px; cursor: pointer; accent-color: var(--slack-purple); }
+  .tool-item .tool-info { flex: 1; }
+  .tool-item .tool-label { font-size: 13px; font-weight: 600; }
+  .tool-item .tool-desc { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .tool-emoji { font-size: 16px; width: 20px; text-align: center; }
+
+  /* Buttons */
+  .btn-submit {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    font-family: var(--font);
+    transition: background .15s;
+  }
+  .btn-onboard { background: var(--slack-green); color: #fff; }
+  .btn-onboard:hover { background: #006249; }
+  .btn-offboard { background: var(--slack-red); color: #fff; }
+  .btn-offboard:hover { background: #b0003e; }
+
+  /* Main channel area */
+  .channel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--slack-bg);
+  }
+  .channel-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .channel-header .hash { font-size: 20px; color: var(--muted); }
+  .channel-header h2 { font-size: 15px; font-weight: 700; }
+  .channel-header .subtitle { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--muted);
+    text-align: center;
+    gap: 10px;
+    padding: 40px;
+  }
+  .empty-state .icon { font-size: 48px; }
+  .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text); }
+  .empty-state p { font-size: 14px; max-width: 300px; }
+
+  /* Slack-like message */
+  .slack-message {
+    display: flex;
+    gap: 12px;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: var(--slack-purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .message-body { flex: 1; min-width: 0; }
+  .message-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .message-sender { font-size: 14px; font-weight: 700; }
+  .message-time { font-size: 11px; color: var(--muted); }
+  .message-app-badge { font-size: 10px; background: var(--slack-bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; color: var(--muted); font-weight: 600; }
+
+  /* Block Kit renderer */
+  .block-kit {
+    max-width: 680px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--msg-bg);
+    overflow: hidden;
+  }
+  .bk-header {
+    padding: 12px 16px 8px;
+    font-size: 18px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+  }
+  .bk-header.onboarding { border-left: 4px solid var(--slack-green); }
+  .bk-header.offboarding { border-left: 4px solid var(--slack-red); }
+  .bk-section { padding: 10px 16px; }
+  .bk-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 20px;
+    padding: 8px 16px;
+  }
+  .bk-field { font-size: 13px; }
+  .bk-field .label { font-weight: 600; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+  .bk-field .val { color: var(--text); }
+  .bk-divider { height: 1px; background: var(--border); margin: 2px 0; }
+  .bk-text { font-size: 14px; line-height: 1.5; color: var(--text); }
+  .bk-muted { font-size: 12px; color: var(--muted); }
+
+  /* Checklist */
+  .bk-checklist { padding: 8px 16px; display: flex; flex-direction: column; gap: 5px; }
+  .bk-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    transition: background .2s;
+  }
+  .bk-step.completed { background: #f0fbf6; }
+  .bk-step.failed    { background: #fff0f3; }
+  .bk-step.in_progress { background: #fffbf0; animation: pulse 1.5s infinite; }
+  .bk-step.pending   { color: var(--muted); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
+
+  .step-icon { font-size: 14px; width: 18px; text-align: center; }
+  .step-label { flex: 1; }
+  .step-error { font-size: 11px; color: var(--fail); margin-top: 2px; }
+  .step-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .badge-manual { background: #e8e8e8; color: #555; }
+  .badge-complete { background: #d4f5e6; color: var(--slack-green); }
+  .badge-fail { background: #fde; color: var(--fail); }
+  .badge-running { background: #fef9e7; color: #b07d00; }
+
+  /* Progress bar */
+  .progress-wrap { padding: 6px 16px; }
+  .progress-bar-bg { background: var(--border); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--slack-green); transition: width .4s ease; border-radius: 4px; }
+  .progress-text { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Actions */
+  .bk-actions { padding: 10px 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .bk-btn {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all .15s;
+  }
+  .bk-btn.primary { background: var(--slack-green); border-color: var(--slack-green); color: #fff; }
+  .bk-btn.primary:hover { background: #006249; }
+  .bk-btn.danger { background: var(--slack-red); border-color: var(--slack-red); color: #fff; }
+  .bk-btn.danger:hover { background: #b0003e; }
+  .bk-btn.default { background: #fff; border-color: #ccc; color: var(--text); }
+  .bk-btn.default:hover { background: var(--slack-bg); }
+  .bk-btn:disabled { opacity: .5; cursor: default; }
+
+  .bk-context { padding: 6px 16px 10px; font-size: 11px; color: var(--muted); }
+
+  /* Status badge */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+  }
+  .status-pending    { background: #f0f0f0; color: #666; }
+  .status-in_progress{ background: #fef9e7; color: #b07d00; }
+  .status-completed  { background: #d4f5e6; color: var(--slack-green); }
+  .status-cancelled  { background: #f0f0f0; color: #999; }
+  .status-failed     { background: #fde; color: var(--fail); }
+
+  /* Completed banner */
+  .completed-banner {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .completed-banner.ok  { background: #d4f5e6; color: var(--slack-green); }
+  .completed-banner.err { background: #fde; color: var(--fail); }
+
+  /* Credential guide panel */
+  .creds-panel {
+    width: 360px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    background: #fff;
+    overflow-y: auto;
+  }
+  .creds-panel h3 {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 14px 16px 6px;
+    color: var(--slack-purple);
+    border-bottom: 1px solid var(--border);
+  }
+  .cred-item { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .cred-item .cred-name { font-size: 13px; font-weight: 700; font-family: monospace; color: var(--text); margin-bottom: 4px; }
+  .cred-item .cred-desc { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .cred-item .cred-where { font-size: 11px; }
+  .cred-item .cred-where a { color: var(--slack-blue); text-decoration: none; }
+  .cred-item .cred-where a:hover { text-decoration: underline; }
+  .cred-item .cred-example { font-family: monospace; font-size: 11px; background: #f5f5f5; padding: 2px 6px; border-radius: 3px; color: #555; display: inline-block; margin-top: 4px; }
+  .cred-item .optional-badge { font-size: 10px; background: #e8e8e8; color: #666; padding: 1px 6px; border-radius: 8px; font-weight: 600; margin-left: 6px; }
+  .required-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--slack-red); margin-right: 4px; vertical-align: middle; }
+  .optional-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ccc; margin-right: 4px; vertical-align: middle; }
+  .section-header { background: var(--slack-bg); padding: 8px 16px; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+
+  /* Responsive */
+  @media (max-width: 1100px) { .creds-panel { display: none; } }
+  @media (max-width: 700px) { .sidebar { width: 300px; } }
+
+  /* Language toggle */
+  .lang-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: background 0.2s;
+  }
+  .lang-toggle:hover { background: rgba(255,255,255,0.25); }
+  .lang-toggle span.flag { font-size: 14px; }
+
+  /* Combobox */
+  .combobox { position: relative; }
+  .combobox-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  .combobox-input:focus { outline: none; border-color: #5b3b7f; box-shadow: 0 0 0 2px rgba(91,59,127,0.15); }
+  .combobox-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .combobox-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .combobox-option:hover, .combobox-option.active { background: #f3f0f8; }
+  .combobox-option .co-name { font-weight: 500; color: #2d1f45; }
+  .combobox-option .co-domain { font-size: 11px; color: #888; }
+  .combobox-option .co-badge-mock { font-size: 10px; color: #d86f2d; background: #fff3ed; padding: 1px 5px; border-radius: 10px; width: fit-content; }
+
+  /* ── Step blocking states ─────────────────────────────────────────── */
+  .bk-step.waiting_actor { background: #fff8e1; border-left: 3px solid var(--slack-yellow); animation: pulse 2s infinite; }
+  .bk-step.actor_confirmed { background: #f0fbf6; border-left: 3px solid var(--slack-green); }
+  .actor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    background: #fef9e7;
+    color: #b07d00;
+    border: 1px solid #ecb22e;
+    margin-left: 4px;
+  }
+
+  /* ── Config panel fields ──────────────────────────────────────────── */
+  .config-field { display:flex; flex-direction:column; gap:3px; }
+  .config-field label { font-size:11px; font-weight:700; color:var(--muted); font-family:monospace; }
+  .config-field input { padding:6px 8px; border:1px solid var(--border); border-radius:4px; font-size:12px; font-family:monospace; width:100%; outline:none; }
+  .config-field input:focus { border-color:var(--slack-purple); box-shadow:0 0 0 2px rgba(74,21,75,.1); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span style="font-size:20px">🤖</span>
+  <h1 data-i18n="nav.title">GSD Onboarding/Offboarding Bot</h1>
+  <span class="badge">LOCAL PREVIEW</span>
+  
+  <div class="connection-status" style="margin-left: 20px; display: flex; gap: 15px; align-items: center;">
+    <div class="status-item" id="status-slack" title="Slack">
+      <i class="fab fa-slack"></i>
+      <span class="dot" style="width:8px;height:8px;border-radius:50%;background:#ff4444;display:inline-block;margin-left:4px;"></span>
+    </div>
+    <div class="status-item" id="status-google" title="Google Workspace">
+      <i class="fab fa-google"></i>
+      <span class="dot" style="width:8px;height:8px;border-radius:50%;background:#ff4444;display:inline-block;margin-left:4px;"></span>
+    </div>
+    <div class="status-item" id="status-timedoctor" title="Time Doctor">
+      <i class="fas fa-clock"></i>
+      <span class="dot" style="width:8px;height:8px;border-radius:50%;background:#ff4444;display:inline-block;margin-left:4px;"></span>
+    </div>
+  </div>
+
+  <span style="margin-left:auto;font-size:12px;opacity:.7" data-i18n="nav.subtitle">Sin credenciales de Slack — solo visualización</span>
+  <button class="lang-toggle" id="langToggle" onclick="toggleLang()">
+    <span class="flag">🌐</span>
+    <span id="langLabel">ES</span>
+  </button>
+</div>
+
+<div class="layout">
+
+  <!-- ── Left: Form panel ── -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" onclick="switchTab('onboarding')" data-i18n="tab.onboarding">✅ Onboarding</div>
+      <div class="sidebar-tab" onclick="switchTab('offboarding')" data-i18n="tab.offboarding">👋 Offboarding</div>
+    </div>
+
+    <!-- Onboarding Form -->
+    <div id="form-onboarding" class="form-panel">
+      <div class="form-title">Nuevo Empleado</div>
+      <div class="form-subtitle">Simula iniciar un proceso de onboarding</div>
+
+      <div class="field">
+        <label data-i18n="ob.client.label">Cliente / Empresa</label>
+        <!-- Client combobox -->
+        <div class="combobox" id="ob-client-combo">
+          <input type="text" id="ob-client" class="combobox-input" placeholder="Buscar cliente..." autocomplete="off"
+            data-i18n-placeholder="ob.client.placeholder"
+            oninput="debouncedSearch(this, 'ob-client-list')"
+            onblur="hideDropdown('ob-client-list', 500)"
+            onfocus="debouncedSearch(this, 'ob-client-list')">
+          <div class="combobox-dropdown" id="ob-client-list" style="display:none"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="field" style="margin-bottom:0">
+          <label>First Name</label>
+          <input id="ob-first-name" type="text" value="Ana" placeholder="Jane" oninput="updateEmailPreview()">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Last Name</label>
+          <input id="ob-last-name" type="text" value="García" placeholder="Doe García" oninput="updateEmailPreview()">
+        </div>
+      </div>
+      <div class="field">
+        <div style="font-size:12px;color:var(--muted);background:var(--slack-bg);border:1px solid var(--border);border-radius:4px;padding:7px 10px">
+          📧 Corporate email: <strong id="ob-email-preview">ana.garcia@gsdoutsources.com</strong>
+          <span style="color:var(--muted);font-size:10px;margin-left:6px">(auto-generated)</span>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="ob.startdate.label">Fecha de inicio</label>
+        <input id="ob-startdate" type="date">
+      </div>
+      <div class="field">
+        <label data-i18n="ob.dept.label">Departamento</label>
+        <select id="ob-dept" onchange="updateToolDefaults()">
+          <option value="">— Seleccionar —</option>
+          <option value="engineering">Engineering</option>
+          <option value="design">Design</option>
+          <option value="marketing">Marketing</option>
+          <option value="sales" selected>Sales</option>
+          <option value="hr">HR</option>
+          <option value="finance">Finance</option>
+          <option value="operations">Operations</option>
+          <option value="support">Support</option>
+          <option value="management">Management</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n="ob.role.label">Cargo / Título</label>
+        <input id="ob-role" type="text" value="Account Executive" placeholder="Sales Rep" oninput="updateToolDefaults()">
+      </div>
+      <div class="field">
+        <label>Manager <span class="hint">(simulado)</span></label>
+        <input id="ob-manager" type="text" value="Carlos López" placeholder="Nombre del manager">
+      </div>
+      <div class="field">
+        <label>Usuario GitHub <span class="hint">(opcional)</span></label>
+        <input id="ob-github" type="text" placeholder="anagarcia">
+      </div>
+
+      <div class="field">
+        <label data-i18n="ob.tools.label">🔧 Herramientas a provisionar
+          <span class="hint">— auto-detectado por perfil</span>
+        </label>
+        <div class="tools-grid" id="ob-tools-grid">
+          <div style="text-align:center;color:var(--muted);font-size:13px;padding:8px">Cargando...</div>
+        </div>
+        <div class="hint-text">Pre-seleccionado según departamento y cargo. HR puede ajustar.</div>
+      </div>
+
+      <button class="btn-submit btn-onboard" onclick="startProcess('onboarding')" data-i18n="ob.submit">
+        🚀 Iniciar Onboarding
+      </button>
+    </div>
+
+    <!-- Offboarding Form -->
+    <div id="form-offboarding" class="form-panel hidden">
+      <div class="form-title">Salida de Empleado</div>
+      <div class="form-subtitle">Simula iniciar un proceso de offboarding</div>
+
+      <div class="field">
+        <label data-i18n="off.client.label">Cliente / Empresa</label>
+        <!-- Client combobox -->
+        <div class="combobox" id="off-client-combo">
+          <input type="text" id="off-client" class="combobox-input" placeholder="Buscar cliente..." autocomplete="off"
+            data-i18n-placeholder="off.client.placeholder"
+            oninput="debouncedSearch(this, 'off-client-list')"
+            onblur="hideDropdown('off-client-list', 500)"
+            onfocus="debouncedSearch(this, 'off-client-list')">
+          <div class="combobox-dropdown" id="off-client-list" style="display:none"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="off.name.label">Nombre completo</label>
+        <input id="off-name" type="text" value="Juan Martínez" placeholder="Juan Martínez">
+      </div>
+      <div class="field">
+        <label data-i18n="off.email.label">Email de trabajo</label>
+        <input id="off-email" type="email" value="juan.martinez@gsdoutsources.com">
+      </div>
+      <div class="field">
+        <label data-i18n="off.lastday.label">Último día</label>
+        <input id="off-lastday" type="date">
+      </div>
+      <div class="field">
+        <label>Manager</label>
+        <input id="off-manager" type="text" value="Carlos López">
+      </div>
+      <div class="field">
+        <label>Transferir Drive a <span class="hint">(opcional)</span></label>
+        <input id="off-transfer" type="text" placeholder="Nombre del receptor">
+      </div>
+      <div class="field">
+        <label data-i18n="off.reason.label">Motivo de salida</label>
+        <select id="off-reason">
+          <option value="resignation">Renuncia voluntaria</option>
+          <option value="contract_end">Fin de contrato</option>
+          <option value="mutual">Acuerdo mutuo</option>
+          <option value="termination">Terminación</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label data-i18n="off.tools.label">🔧 Herramientas a revocar</label>
+        <div class="tools-grid" id="off-tools-grid"></div>
+      </div>
+
+      <button class="btn-submit btn-offboard" onclick="startProcess('offboarding')" data-i18n="off.submit">
+        👋 Iniciar Offboarding
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Center: Slack channel simulation ── -->
+  <div class="channel">
+    <div class="channel-header">
+      <span class="hash">#</span>
+      <h2 data-i18n="channel.title">people-ops</h2>
+      <span class="subtitle">Simulación local — los mensajes aparecerán aquí</span>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty-state" id="empty-state">
+        <div class="icon">💬</div>
+        <h3>Canal #people-ops</h3>
+        <p>Rellena el formulario de la izquierda y haz clic en "Iniciar" para ver el tracker del proceso en tiempo real.</p>
+        <p style="margin-top:8px;color:var(--muted);font-size:12px">Los pasos automatizados se ejecutan con delays reales para simular las llamadas a APIs.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: Actors + Config panel ── -->
+  <div class="creds-panel" style="display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--slack-bg);">
+      <div id="right-tab-actors" style="flex:1;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;color:var(--slack-purple);border-bottom:2px solid var(--slack-purple);" onclick="switchRightTab('actors')">🏢 Departamentos</div>
+      <div id="right-tab-creds" style="flex:1;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;color:var(--muted);border-bottom:2px solid transparent;" onclick="switchRightTab('creds')">🔑 Credenciales</div>
+      <div id="right-tab-config" style="flex:1;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;color:var(--muted);border-bottom:2px solid transparent;" onclick="switchRightTab('config')">⚙️ Config</div>
+    </div>
+
+    <!-- Actors inbox (visible by default) -->
+    <div id="right-panel-actors" style="flex:1;overflow-y:auto;">
+      <div id="actors-inbox-container">
+        <div class="actor-empty">🏢<br><br>Inicia un proceso para ver<br>las notificaciones por departamento.</div>
+      </div>
+    </div>
+
+    <!-- Credentials guide (hidden by default) -->
+    <div id="right-panel-creds" style="flex:1;overflow-y:auto;display:none;">
+    <h3 data-i18n="creds.title">🔑 Dónde obtener las credenciales</h3>
+
+    <div class="section-header">Slack — Obligatorio</div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="required-dot"></span>SLACK_BOT_TOKEN</div>
+      <div class="cred-desc">Token del bot para enviar mensajes y llamar a la API</div>
+      <div class="cred-where">
+        1. <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> → Create New App<br>
+        2. Pegar el <a href="#manifest">manifest.json</a> (ver abajo)<br>
+        3. OAuth &amp; Permissions → Install App<br>
+        4. Copiar <strong>Bot User OAuth Token</strong>
+      </div>
+      <div class="cred-example">xoxb-123456789-...</div>
+    </div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="required-dot"></span>SLACK_SIGNING_SECRET</div>
+      <div class="cred-desc">Verifica que los eventos vienen de Slack</div>
+      <div class="cred-where">
+        <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> → tu app → Basic Information → App Credentials → <strong>Signing Secret</strong>
+      </div>
+      <div class="cred-example">abc123def456...</div>
+    </div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="required-dot"></span>SLACK_APP_TOKEN</div>
+      <div class="cred-desc">Para Socket Mode (dev sin URL pública)</div>
+      <div class="cred-where">
+        Basic Information → App-Level Tokens → Generate Token → scope: <strong>connections:write</strong>
+      </div>
+      <div class="cred-example">xapp-1-A0123...</div>
+    </div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="required-dot"></span>HR_CHANNEL_ID</div>
+      <div class="cred-desc">Canal donde el bot postea los trackers</div>
+      <div class="cred-where">
+        En Slack: clic derecho al canal → <strong>Copy link</strong><br>
+        El ID es el último segmento: <code>.../C0ABC1234</code>
+      </div>
+      <div class="cred-example">C0HR000000</div>
+    </div>
+
+    <div class="section-header">Google Workspace — Recomendado</div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>GOOGLE_CLIENT_EMAIL <span class="optional-badge">opcional</span></div>
+      <div class="cred-desc">Service account para crear cuentas y Drive</div>
+      <div class="cred-where">
+        <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank">GCP Console</a> → Service Accounts → Create → Descargar JSON key<br>
+        Luego en <a href="https://admin.google.com/ac/owl/domainwidedelegation" target="_blank">Google Admin</a> → Domain-wide delegation
+      </div>
+      <div class="cred-example">sa@project.iam.gserviceaccount.com</div>
+    </div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>GOOGLE_CUSTOMER_ID <span class="optional-badge">solo para Voice</span></div>
+      <div class="cred-where">
+        <a href="https://admin.google.com/ac/accountsettings" target="_blank">Google Admin</a> → Account Settings → Profile → Customer ID
+      </div>
+      <div class="cred-example">C0abcde12</div>
+    </div>
+
+    <div class="section-header">Time Doctor — Opcional</div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>TIMEDOCTOR_ACCESS_TOKEN <span class="optional-badge">opcional</span></div>
+      <div class="cred-where">
+        <a href="https://app2.timedoctor.com/#/settings" target="_blank">Time Doctor</a> → Settings → Integrations → API → Generate Token
+      </div>
+      <div class="cred-example">td_pat_...</div>
+    </div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>TIMEDOCTOR_COMPANY_ID <span class="optional-badge">opcional</span></div>
+      <div class="cred-where">
+        Visible en la URL del dashboard de Time Doctor:<br>
+        <code>app2.timedoctor.com/dashboard/<strong>123456</strong>/...</code>
+      </div>
+    </div>
+
+    <div class="section-header">HubSpot — Opcional</div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>HUBSPOT_ACCESS_TOKEN <span class="optional-badge">opcional</span></div>
+      <div class="cred-where">
+        <a href="https://app.hubspot.com/private-apps" target="_blank">HubSpot</a> → Settings → Integrations → Private Apps → Create → Scopes: <code>settings.users.write</code>, <code>crm.objects.contacts.write</code>
+      </div>
+      <div class="cred-example">pat-na1-xxxxxxxx</div>
+    </div>
+
+    <div class="section-header">ScaleFusion MDM — Bloqueo de Dispositivos</div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>SCALEFUSION_API_KEY <span class="optional-badge">recomendado</span></div>
+      <div class="cred-desc">Bloquea dispositivos del empleado al hacer offboarding. También envía invitación de enrollment en onboarding.</div>
+      <div class="cred-where">
+        <a href="https://scalefusion.com" target="_blank">scalefusion.com</a> → Dashboard → Settings → API → <strong>Generate API Key</strong><br>
+        Necesitas plan Business o superior para acceso API.
+      </div>
+      <div class="cred-example">sf_live_...</div>
+    </div>
+
+    <div class="section-header">GitHub — Solo para Engineering</div>
+
+    <div class="cred-item">
+      <div class="cred-name"><span class="optional-dot"></span>GITHUB_TOKEN <span class="optional-badge">opcional</span></div>
+      <div class="cred-where">
+        <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> → Generate new token (classic) → scope: <code>admin:org</code>
+      </div>
+      <div class="cred-example">ghp_...</div>
+    </div>
+
+    <div style="padding:16px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)">
+      💡 Copia <code>.env.example</code> a <code>.env</code> y rellena las variables que necesites. Las integraciones no configuradas se saltarán automáticamente.
+    </div>
+    </div><!-- end right-panel-creds -->
+
+    <!-- Config panel -->
+    <div id="right-panel-config" style="flex:1;overflow-y:auto;display:none;padding:0;">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--border);background:var(--slack-bg);">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">⚙️ Configuración de Integraciones</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Guarda los API keys en el archivo .env del proyecto</div>
+      </div>
+
+      <!-- Slack section -->
+      <div style="border-bottom:1px solid var(--border);">
+        <div class="section-header">🟣 Slack — Obligatorio</div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="config-field"><label>SLACK_BOT_TOKEN</label><input id="cfg-SLACK_BOT_TOKEN" type="password" placeholder="xoxb-..."></div>
+          <div class="config-field"><label>SLACK_SIGNING_SECRET</label><input id="cfg-SLACK_SIGNING_SECRET" type="password" placeholder="abc123..."></div>
+          <div class="config-field"><label>SLACK_APP_TOKEN</label><input id="cfg-SLACK_APP_TOKEN" type="password" placeholder="xapp-... (solo dev)"></div>
+          <div class="config-field"><label>HR_CHANNEL_ID</label><input id="cfg-HR_CHANNEL_ID" placeholder="C0123456789"></div>
+          <div class="config-field"><label>IT_CHANNEL_ID</label><input id="cfg-IT_CHANNEL_ID" placeholder="C9876543210"></div>
+          <div class="config-field"><label>AUTHORIZED_USER_IDS</label><input id="cfg-AUTHORIZED_USER_IDS" placeholder="U0123,U4567 (separado por comas)"></div>
+          <div class="config-field"><label>AUTHORIZED_CHANNEL_ID</label><input id="cfg-AUTHORIZED_CHANNEL_ID" placeholder="C0123456789"></div>
+        </div>
+      </div>
+
+      <!-- Google section -->
+      <div style="border-bottom:1px solid var(--border);">
+        <div class="section-header">🔵 Google Workspace</div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="config-field"><label>GOOGLE_CLIENT_EMAIL</label><input id="cfg-GOOGLE_CLIENT_EMAIL" placeholder="bot@project.iam.gserviceaccount.com"></div>
+          <div class="config-field"><label>GOOGLE_PRIVATE_KEY</label><input id="cfg-GOOGLE_PRIVATE_KEY" type="password" placeholder="-----BEGIN RSA PRIVATE KEY-----"></div>
+          <div class="config-field"><label>GOOGLE_ADMIN_EMAIL</label><input id="cfg-GOOGLE_ADMIN_EMAIL" placeholder="admin@gsdoutsources.com"></div>
+          <div class="config-field"><label>GOOGLE_DOMAIN</label><input id="cfg-GOOGLE_DOMAIN" placeholder="gsdoutsources.com"></div>
+          <div class="config-field"><label>GOOGLE_CUSTOMER_ID</label><input id="cfg-GOOGLE_CUSTOMER_ID" placeholder="C0xxxxxxx"></div>
+        </div>
+      </div>
+
+      <!-- HubSpot section -->
+      <div style="border-bottom:1px solid var(--border);">
+        <div class="section-header">🟠 HubSpot</div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="config-field"><label>HUBSPOT_ACCESS_TOKEN</label><input id="cfg-HUBSPOT_ACCESS_TOKEN" type="password" placeholder="pat-na1-..."></div>
+        </div>
+      </div>
+
+      <!-- Time Doctor section -->
+      <div style="border-bottom:1px solid var(--border);">
+        <div class="section-header">⏱ Time Doctor</div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="config-field"><label>TIMEDOCTOR_ACCESS_TOKEN</label><input id="cfg-TIMEDOCTOR_ACCESS_TOKEN" type="password" placeholder="tu-token"></div>
+          <div class="config-field"><label>TIMEDOCTOR_COMPANY_ID</label><input id="cfg-TIMEDOCTOR_COMPANY_ID" placeholder="123456"></div>
+        </div>
+      </div>
+
+      <!-- ScaleFusion section -->
+      <div style="border-bottom:1px solid var(--border);">
+        <div class="section-header">📱 ScaleFusion MDM</div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="config-field"><label>SCALEFUSION_API_KEY</label><input id="cfg-SCALEFUSION_API_KEY" type="password" placeholder="tu-api-key"></div>
+        </div>
+      </div>
+
+      <!-- GitHub section -->
+      <div style="border-bottom:1px solid var(--border);">
+        <div class="section-header">🐙 GitHub</div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="config-field"><label>GITHUB_TOKEN</label><input id="cfg-GITHUB_TOKEN" type="password" placeholder="github_pat_..."></div>
+          <div class="config-field"><label>GITHUB_ORG</label><input id="cfg-GITHUB_ORG" placeholder="gsd-outsources"></div>
+        </div>
+      </div>
+
+      <!-- Save button -->
+      <div style="padding:14px;background:var(--slack-bg);border-top:1px solid var(--border);position:sticky;bottom:0;">
+        <button onclick="saveEnvConfig()" style="width:100%;padding:10px;background:var(--slack-purple);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">
+          💾 Guardar en .env
+        </button>
+        <div id="cfg-status" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;"></div>
+      </div>
+    </div><!-- end right-panel-config -->
+
+  </div><!-- end creds-panel -->
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let currentTab = 'onboarding';
+let allToolMeta = {};
+let processCount = 0;
+
+// ── Language / i18n ────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  es: {
+    'nav.title': 'HR Bot · Preview',
+    'nav.subtitle': 'Vista previa local — sin credenciales de Slack',
+    'sidebar.title': '🚀 Iniciar proceso',
+    'tab.onboarding': '✅ Onboarding',
+    'tab.offboarding': '👋 Offboarding',
+    'ob.client.label': 'Cliente / Empresa',
+    'ob.client.placeholder': 'Buscar cliente...',
+    'ob.name.label': 'Nombre completo',
+    'ob.email.label': 'Correo de trabajo',
+    'ob.startdate.label': 'Fecha de inicio',
+    'ob.dept.label': 'Departamento',
+    'ob.role.label': 'Cargo / Título',
+    'ob.tools.label': '🔧 Herramientas',
+    'ob.submit': '🚀 Iniciar Onboarding',
+    'off.client.label': 'Cliente / Empresa',
+    'off.client.placeholder': 'Buscar cliente...',
+    'off.name.label': 'Nombre completo',
+    'off.email.label': 'Correo de trabajo',
+    'off.lastday.label': 'Último día laboral',
+    'off.reason.label': 'Motivo de baja',
+    'off.tools.label': '🔧 Herramientas a revocar',
+    'off.submit': '👋 Iniciar Offboarding',
+    'creds.title': '🔑 Guía de credenciales',
+    'channel.title': '#people-ops',
+    'channel.empty': 'Aquí aparecerán los trackers de procesos...',
+  },
+  en: {
+    'nav.title': 'HR Bot · Preview',
+    'nav.subtitle': 'Local preview — no Slack credentials needed',
+    'sidebar.title': '🚀 Start Process',
+    'tab.onboarding': '✅ Onboarding',
+    'tab.offboarding': '👋 Offboarding',
+    'ob.client.label': 'Client / Company',
+    'ob.client.placeholder': 'Search client...',
+    'ob.name.label': 'Full Name',
+    'ob.email.label': 'Work Email',
+    'ob.startdate.label': 'Start Date',
+    'ob.dept.label': 'Department',
+    'ob.role.label': 'Role / Job Title',
+    'ob.tools.label': '🔧 Tools',
+    'ob.submit': '🚀 Start Onboarding',
+    'off.client.label': 'Client / Company',
+    'off.client.placeholder': 'Search client...',
+    'off.name.label': 'Full Name',
+    'off.email.label': 'Work Email',
+    'off.lastday.label': 'Last Working Day',
+    'off.reason.label': 'Reason for Departure',
+    'off.tools.label': '🔧 Access to Revoke',
+    'off.submit': '👋 Start Offboarding',
+    'creds.title': '🔑 Credentials Guide',
+    'channel.title': '#people-ops',
+    'channel.empty': 'Process trackers will appear here...',
+  }
+};
+
+let currentLang = localStorage.getItem('hrbot_lang') ?? 'es';
+
+function toggleLang() {
+  currentLang = currentLang === 'es' ? 'en' : 'es';
+  localStorage.setItem('hrbot_lang', currentLang);
+  applyLang();
+}
+
+function t(key) {
+  return TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.es[key] ?? key;
+}
+
+function applyLang() {
+  document.getElementById('langLabel').textContent = currentLang.toUpperCase();
+  // Apply translations to elements with data-i18n attribute
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  // Apply placeholder translations
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+}
+
+// ── HubSpot Client Combobox ────────────────────────────────────────────────
+let searchTimer = null;
+
+function debouncedSearch(inputEl, listId) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => fetchCompanies(inputEl, listId), 250);
+}
+
+async function fetchCompanies(inputEl, listId) {
+  const q = inputEl.value.trim();
+  const list = document.getElementById(listId);
+  if (!list) return;
+
+  try {
+    const res = await fetch(`/api/hubspot-companies?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    renderDropdown(data.companies ?? [], list, inputEl, data.source === 'mock');
+  } catch (_) {
+    renderDropdown([], list, inputEl, false);
+  }
+}
+
+function renderDropdown(companies, listEl, inputEl, isMock) {
+  if (companies.length === 0) { listEl.style.display = 'none'; return; }
+
+  listEl.innerHTML = companies.map(c => `
+    <div class="combobox-option" onclick="selectCompany('${c.name.replace(/'/g,"\\'")}', '${inputEl.id}', '${listEl.id}')">
+      <span class="co-name">${c.name}</span>
+      ${c.domain ? `<span class="co-domain">${c.domain}</span>` : ''}
+      ${isMock ? '<span class="co-badge-mock">demo</span>' : ''}
+    </div>
+  `).join('');
+  listEl.style.display = 'block';
+}
+
+function selectCompany(name, inputId, listId) {
+  document.getElementById(inputId).value = name;
+  document.getElementById(listId).style.display = 'none';
+}
+
+function hideDropdown(listId, delay = 0) {
+  setTimeout(() => {
+    const el = document.getElementById(listId);
+    if (el) el.style.display = 'none';
+  }, delay);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Set default dates
+  const today = new Date();
+  const nextMonday = new Date(today);
+  nextMonday.setDate(today.getDate() + (8 - today.getDay()) % 7 + 1);
+  document.getElementById('ob-startdate').value = nextMonday.toISOString().split('T')[0];
+  document.getElementById('off-lastday').value = new Date(today.getTime() + 14 * 86400000).toISOString().split('T')[0];
+
+  // Load tool defaults for initial dept/role
+  updateToolDefaults();
+  renderOffboardingTools();
+
+  // Apply language on load
+  applyLang();
+
+  // Initialize right panel to actors tab
+  switchRightTab('actors');
+
+  // Pre-populate config fields from .env
+  loadEnvConfig();
+
+  // Seed email preview from default name values
+  updateEmailPreview();
+});
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.sidebar-tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0) === (tab === 'onboarding'));
+  });
+  document.getElementById('form-onboarding').classList.toggle('hidden', tab !== 'onboarding');
+  document.getElementById('form-offboarding').classList.toggle('hidden', tab !== 'offboarding');
+}
+
+// ── Tool defaults (called when dept or role changes) ───────────────────────────
+async function updateToolDefaults() {
+  const dept = document.getElementById('ob-dept').value;
+  const role = document.getElementById('ob-role').value;
+
+  try {
+    const res = await fetch(`/api/tools-defaults?dept=${encodeURIComponent(dept)}&role=${encodeURIComponent(role)}`);
+    const data = await res.json();
+    allToolMeta = data.toolMeta;
+    renderToolsGrid('ob-tools-grid', data.allTools, data.tools, data.toolMeta);
+  } catch (e) {
+    console.error('Failed to load tool defaults', e);
+  }
+}
+
+function renderOffboardingTools() {
+  // Default: all common tools for offboarding
+  const defaultTools = ['google_workspace', 'slack', 'timedoctor', 'hubspot'];
+  const allTools = ['google_workspace', 'google_voice', 'slack', 'timedoctor', 'hubspot', 'github'];
+  const meta = {
+    google_workspace: { label: 'Google Workspace', emoji: '🔵', description: 'Cuenta @gsdoutsources.com', required: true },
+    google_voice: { label: 'Google Voice', emoji: '📞', description: 'Número virtual', required: false },
+    slack: { label: 'Slack', emoji: '💬', description: 'Mensajería del equipo', required: false },
+    timedoctor: { label: 'Time Doctor', emoji: '⏱️', description: 'Tracking de tiempo', required: false },
+    hubspot: { label: 'HubSpot', emoji: '📈', description: 'CRM', required: false },
+    github: { label: 'GitHub', emoji: '🐙', description: 'Repositorios de código', required: false },
+  };
+  renderToolsGrid('off-tools-grid', allTools, defaultTools, meta);
+}
+
+function renderToolsGrid(gridId, allTools, selectedTools, meta) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const selectedSet = new Set(selectedTools);
+  grid.innerHTML = allTools.map(key => {
+    const m = meta[key] || { label: key, emoji: '🔧', description: '', required: false };
+    const checked = selectedSet.has(key);
+    const disabled = m.required ? 'disabled' : '';
+    return `
+      <label class="tool-item${m.required ? ' required' : ''}">
+        <input type="checkbox" value="${key}" ${checked ? 'checked' : ''} ${disabled}>
+        <span class="tool-emoji">${toolEmoji(key)}</span>
+        <div class="tool-info">
+          <div class="tool-label">${m.label}${m.required ? ' <span style="color:var(--fail);font-size:10px">●</span>' : ''}</div>
+          <div class="tool-desc">${m.description}</div>
+        </div>
+      </label>`;
+  }).join('');
+}
+
+function toolEmoji(key) {
+  const map = {
+    google_workspace: '🔵', google_voice: '📞', slack: '💬',
+    timedoctor: '⏱️', hubspot: '📈', github: '🐙'
+  };
+  return map[key] || '🔧';
+}
+
+function getSelectedTools(gridId) {
+  const grid = document.getElementById(gridId);
+  return [...grid.querySelectorAll('input[type=checkbox]:checked')].map(el => el.value);
+}
+
+// ── Start process ──────────────────────────────────────────────────────────────
+async function startProcess(type) {
+  const isOn = type === 'onboarding';
+  const tools = getSelectedTools(isOn ? 'ob-tools-grid' : 'off-tools-grid');
+
+  const firstName = (document.getElementById('ob-first-name')?.value ?? '').trim();
+  const lastName  = (document.getElementById('ob-last-name')?.value ?? '').trim();
+  const employeeName  = [firstName, lastName].filter(Boolean).join(' ') || 'New Employee';
+  const employeeEmail = buildEmail(firstName, lastName);
+
+  const payload = isOn ? {
+    clientName:    document.getElementById('ob-client').value.trim() || 'GSD',
+    firstName,
+    lastName,
+    employeeName,
+    employeeEmail,
+    startDate:     document.getElementById('ob-startdate').value,
+    department:    document.getElementById('ob-dept').value,
+    roleTitle:     document.getElementById('ob-role').value,
+    manager:       document.getElementById('ob-manager').value,
+    githubUsername: document.getElementById('ob-github').value,
+    tools,
+  } : {
+    clientName: document.getElementById('off-client').value.trim() || 'GSD',
+    employeeName: document.getElementById('off-name').value || 'Empleado Saliente',
+    employeeEmail: document.getElementById('off-email').value || 'saliente@gsdoutsources.com',
+    lastDay: document.getElementById('off-lastday').value,
+    manager: document.getElementById('off-manager').value,
+    fileTransferTo: document.getElementById('off-transfer').value,
+    offboardReason: document.getElementById('off-reason').value,
+    tools,
+  };
+
+  const res = await fetch(`/api/start-${type}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+
+  // Remove empty state
+  document.getElementById('empty-state')?.remove();
+
+  processCount++;
+  renderTrackerMessage(data.sessionId, type, payload, data.steps);
+  subscribeToUpdates(data.sessionId, type, payload);
+}
+
+// ── Render tracker message ─────────────────────────────────────────────────────
+function renderTrackerMessage(sessionId, type, data, steps) {
+  const isOn = type === 'onboarding';
+  const msgEl = document.createElement('div');
+  msgEl.className = 'slack-message';
+  msgEl.id = `msg-${sessionId}`;
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+
+  msgEl.innerHTML = `
+    <div class="avatar">🤖</div>
+    <div class="message-body">
+      <div class="message-meta">
+        <span class="message-sender">HR Bot</span>
+        <span class="message-app-badge">APP</span>
+        <span class="message-time">${timeStr}</span>
+      </div>
+      <div class="block-kit" id="bk-${sessionId}">
+        ${buildBlockKitHTML(sessionId, type, data, steps)}
+      </div>
+    </div>`;
+
+  document.getElementById('messages').appendChild(msgEl);
+  msgEl.scrollIntoView({ behavior: 'smooth' });
+}
+
+function buildBlockKitHTML(sessionId, type, data, steps) {
+  const isOn = type === 'onboarding';
+  const headerClass = isOn ? 'onboarding' : 'offboarding';
+  const headerText = isOn ? '🟢 New Employee Onboarding' : '🔴 Employee Offboarding';
+
+  const dateVal = isOn
+    ? (data.startDate ? formatDate(data.startDate) : 'TBD')
+    : (data.lastDay ? formatDate(data.lastDay) : 'TBD');
+  const dateLabel = isOn ? 'Start Date' : 'Last Day';
+
+  const tools = data.tools || [];
+  const toolBadges = tools.map(t => `<span style="display:inline-block;background:#f0f0f0;border-radius:10px;padding:1px 8px;font-size:11px;margin:1px;font-weight:600">${toolEmoji(t)} ${t.replace('_', ' ')}</span>`).join('');
+
+  const done = steps.filter(s => s.status === 'completed').length;
+  const total = steps.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const checklistHTML = steps.map(s => stepHTML(s, sessionId)).join('');
+
+  const manualSteps = steps.filter(s => s.manual && s.status === 'pending');
+  const actionButtons = manualSteps.slice(0, 2).map(s =>
+    `<button class="bk-btn default" onclick="completeManualStep('${sessionId}', '${s.key}', this)">${s.label}</button>`
+  ).join('');
+
+  const statusClass = `status-${'in_progress'}`;
+
+  return `
+    <div class="bk-header ${headerClass}">${headerText}</div>
+    <div class="bk-fields">
+      <div class="bk-field"><div class="label">🏢 CLIENTE</div><div class="val" style="font-weight:700;color:var(--slack-purple)">${esc(data.clientName || 'GSD')}</div></div>
+      <div class="bk-field"><div class="label">EMPLEADO</div><div class="val">${esc(data.employeeName)}</div></div>
+      <div class="bk-field"><div class="label">EMAIL</div><div class="val">${esc(data.employeeEmail)}</div></div>
+      <div class="bk-field"><div class="label">${dateLabel.toUpperCase()}</div><div class="val">${dateVal}</div></div>
+      <div class="bk-field"><div class="label">MANAGER</div><div class="val">${esc(data.manager || '—')}</div></div>
+      ${data.department ? `<div class="bk-field"><div class="label">DEPARTAMENTO</div><div class="val">${esc(data.department)}</div></div>` : ''}
+      ${data.roleTitle ? `<div class="bk-field"><div class="label">CARGO</div><div class="val">${esc(data.roleTitle)}</div></div>` : ''}
+    </div>
+    <div class="bk-section" style="padding-top:4px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">HERRAMIENTAS</div>
+      <div>${toolBadges}</div>
+    </div>
+    <div class="bk-divider"></div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="pb-${sessionId}" style="width:${pct}%"></div></div>
+      <div class="progress-text" id="pt-${sessionId}">${done}/${total} pasos completados (${pct}%)</div>
+    </div>
+    <div class="bk-checklist" id="cl-${sessionId}">
+      ${checklistHTML}
+    </div>
+    <div class="bk-divider"></div>
+    <div class="bk-actions" id="ba-${sessionId}">
+      ${actionButtons}
+      <button class="bk-btn danger" onclick="alert('Proceso cancelado (simulación)')">✕ Cancelar</button>
+    </div>
+    <div class="bk-context">Iniciado por <strong>@tú</strong> • Proceso #${processCount} • ${new Date().toLocaleString('es')}</div>
+  `;
+}
+
+function stepHTML(step, sessionId) {
+  const icons = { completed: '✅', in_progress: '⏳', failed: '❌', skipped: '⏭️', pending: '⚪', waiting_actor: '⏸', actor_confirmed: '✅' };
+  const icon = icons[step.status] || '⚪';
+  const manualBadge = step.manual && !step.blocking ? `<span class="step-badge badge-manual">manual</span>` : '';
+  const blockingBadge = step.blocking && step.actor
+    ? `<span class="actor-chip">${step.actor}</span>`
+    : '';
+  const statusBadge = step.status === 'completed' ? `<span class="step-badge badge-complete">listo</span>`
+    : step.status === 'actor_confirmed' ? `<span class="step-badge badge-complete">confirmado</span>`
+    : step.status === 'failed' ? `<span class="step-badge badge-fail">error</span>`
+    : step.status === 'in_progress' ? `<span class="step-badge badge-running">ejecutando...</span>`
+    : step.status === 'waiting_actor' ? `<span class="step-badge badge-running">esperando confirmación...</span>`
+    : '';
+
+  return `<div class="bk-step ${step.status}" id="step-${sessionId}-${step.key}">
+    <span class="step-icon">${icon}</span>
+    <span class="step-label">${esc(step.label)}</span>
+    ${manualBadge}
+    ${blockingBadge}
+    ${statusBadge}
+    ${step.errorMessage ? `<div class="step-error">⚠️ ${esc(step.errorMessage)}</div>` : ''}
+  </div>`;
+}
+
+// ── SSE Subscription ───────────────────────────────────────────────────────────
+function subscribeToUpdates(sessionId, type, data) {
+  const es = new EventSource(`/api/events/${sessionId}`);
+
+  es.addEventListener('step', e => {
+    const step = JSON.parse(e.data);
+    updateStep(sessionId, step, data.steps || []);
+  });
+
+  es.addEventListener('state', e => {
+    const steps = JSON.parse(e.data);
+    steps.forEach(step => updateStep(sessionId, step, steps));
+  });
+
+  es.addEventListener('actor_notification', (e) => {
+    const data = JSON.parse(e.data);
+    if (!actorNotifications.find(n => n.stepKey === data.stepKey)) {
+      actorNotifications.push({
+        sessionId: data.sessionId,
+        stepKey: data.stepKey,
+        actor: data.actor,
+        actorInfo: data.actorInfo,
+        label: data.label,
+        status: 'waiting',
+      });
+    }
+    renderActorsInbox();
+    switchRightTab('actors');
+  });
+
+  es.addEventListener('complete', () => {
+    es.close();
+    showCompletedBanner(sessionId, type);
+  });
+
+  es.onerror = () => { es.close(); };
+}
+
+function updateStep(sessionId, updatedStep, allSteps) {
+  const el = document.getElementById(`step-${sessionId}-${updatedStep.key}`);
+  if (el) {
+    el.outerHTML = stepHTML(updatedStep, sessionId);
+  }
+
+  // Update progress
+  const cl = document.getElementById(`cl-${sessionId}`);
+  if (!cl) return;
+  const allStepEls = cl.querySelectorAll('.bk-step');
+  const total = allStepEls.length;
+  const done = cl.querySelectorAll('.bk-step.completed').length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const pb = document.getElementById(`pb-${sessionId}`);
+  if (pb) pb.style.width = pct + '%';
+  const pt = document.getElementById(`pt-${sessionId}`);
+  if (pt) pt.textContent = `${done}/${total} pasos completados (${pct}%)`;
+
+  // Update manual action buttons
+  const ba = document.getElementById(`ba-${sessionId}`);
+  if (ba && updatedStep.manual && updatedStep.status === 'completed') {
+    const btn = ba.querySelector(`[onclick*="${updatedStep.key}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = '✅ ' + btn.textContent; }
+  }
+}
+
+function showCompletedBanner(sessionId, type) {
+  const bk = document.getElementById(`bk-${sessionId}`);
+  if (!bk) return;
+  const isOn = type === 'onboarding';
+  const banner = document.createElement('div');
+  banner.className = 'completed-banner ok';
+  banner.innerHTML = isOn
+    ? '🎉 Onboarding completado — todos los pasos automatizados finalizaron.'
+    : '✅ Offboarding completado — accesos y transferencias procesados.';
+  bk.insertBefore(banner, bk.firstChild);
+}
+
+async function completeManualStep(sessionId, stepKey, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ ' + btn.textContent;
+  await fetch(`/api/complete-step/${sessionId}/${stepKey}`, { method: 'POST' });
+}
+
+// ── Right panel tabs ───────────────────────────────────────────────
+function switchRightTab(tab) {
+  ['actors', 'creds', 'config'].forEach(t => {
+    const panel = document.getElementById(`right-panel-${t}`);
+    const tabEl = document.getElementById(`right-tab-${t}`);
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    if (tabEl) {
+      tabEl.style.color = t === tab ? 'var(--slack-purple)' : 'var(--muted)';
+      tabEl.style.borderBottom = t === tab ? '2px solid var(--slack-purple)' : '2px solid transparent';
+    }
+  });
+}
+
+// ── Actors inbox state ─────────────────────────────────────────────
+let actorNotifications = [];
+
+function renderActorsInbox() {
+  const container = document.getElementById('actors-inbox-container');
+  if (!container) return;
+
+  const actorOrder = ['hr', 'it', 'manager', 'finance'];
+  const grouped = {};
+  actorOrder.forEach(a => { grouped[a] = []; });
+  actorNotifications.forEach(n => {
+    if (grouped[n.actor]) grouped[n.actor].push(n);
+  });
+
+  const actorMeta = {
+    hr:      { label: 'Recursos Humanos', emoji: '👩‍💼', color: '#5b3b7f' },
+    it:      { label: 'IT / Sistemas',    emoji: '💻',  color: '#0066cc' },
+    manager: { label: 'Manager Directo',  emoji: '👨‍💼', color: '#d86f2d' },
+    finance: { label: 'Finanzas/Nómina',  emoji: '💰',  color: '#28a745' },
+  };
+
+  const hasAny = actorNotifications.length > 0;
+  if (!hasAny) {
+    container.innerHTML = '<div class="actor-empty">🏢<br><br>Inicia un proceso para ver<br>las notificaciones por departamento.</div>';
+    return;
+  }
+
+  let html = '';
+
+  actorOrder.forEach(actorKey => {
+    const notifs = grouped[actorKey];
+    if (notifs.length === 0) return;
+    const meta = actorMeta[actorKey];
+    const pending = notifs.filter(n => n.status === 'waiting').length;
+    const badgeHtml = pending > 0
+      ? `<span class="actor-badge waiting">⏳ ${pending} pendiente${pending > 1 ? 's' : ''}</span>`
+      : `<span class="actor-badge done">✅ Todo listo</span>`;
+
+    html += `
+      <div class="actor-inbox">
+        <div class="actor-inbox-header">
+          <span class="actor-emoji">${meta.emoji}</span>
+          <span class="actor-label" style="color:${meta.color}">${meta.label}</span>
+          ${badgeHtml}
+        </div>
+        <div class="actor-notifications">
+    `;
+
+    notifs.forEach(n => {
+      const isDone = n.status === 'done';
+      html += `
+        <div class="actor-notification ${isDone ? 'done' : 'waiting'}" id="notif-${n.stepKey}">
+          <div class="actor-notif-header">${isDone ? '✅ Confirmado' : '⏳ Acción requerida'}</div>
+          <div class="actor-notif-body">
+            <strong>${esc(n.label)}</strong><br>
+            <span style="font-size:11px;color:var(--muted)">Proceso: ${n.sessionId.split('-').slice(0,2).join(' ')}</span>
+          </div>
+          ${!isDone ? `
+          <div class="actor-notif-actions">
+            <button class="btn-actor-confirm" onclick="actorConfirm('${n.sessionId}','${n.stepKey}')" id="btn-confirm-${n.stepKey}">
+              ✅ Confirmar
+            </button>
+          </div>` : ''}
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function actorConfirm(sessionId, stepKey) {
+  const btn = document.getElementById(`btn-confirm-${stepKey}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Confirmando...'; }
+
+  fetch(`/api/actor-confirm/${sessionId}/${stepKey}`, { method: 'POST' })
+    .then(() => {
+      const n = actorNotifications.find(x => x.stepKey === stepKey);
+      if (n) n.status = 'done';
+      renderActorsInbox();
+    })
+    .catch(() => {
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar'; }
+    });
+}
+
+// ── Actor notification CSS (injected once) ─────────────────────────
+(function injectActorStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .actor-inbox { border-bottom: 1px solid var(--border); }
+    .actor-inbox-header { padding: 10px 14px 6px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .actor-inbox-header:hover { background: var(--slack-bg); }
+    .actor-emoji { font-size: 18px; }
+    .actor-label { font-size: 13px; font-weight: 700; flex: 1; }
+    .actor-badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+    .actor-badge.waiting { background: #fef9e7; color: #b07d00; border: 1px solid #ecb22e; }
+    .actor-badge.idle    { background: #f0f0f0; color: #999; }
+    .actor-badge.done    { background: #d4f5e6; color: var(--slack-green); }
+    .actor-notifications { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .actor-notification { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .actor-notification.waiting { border-color: #ecb22e; box-shadow: 0 0 0 2px rgba(236,178,46,0.15); }
+    .actor-notification.done { border-color: #b2dfcb; opacity: 0.7; }
+    .actor-notif-header { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .actor-notif-body { padding: 4px 12px 10px; font-size: 13px; color: var(--text); line-height: 1.4; }
+    .actor-notif-body strong { color: var(--slack-purple); }
+    .actor-notif-actions { padding: 6px 12px 10px; display: flex; gap: 6px; }
+    .btn-actor-confirm { padding: 6px 14px; background: var(--slack-green); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font); transition: background .15s; display: flex; align-items: center; gap: 4px; }
+    .btn-actor-confirm:hover { background: #006249; }
+    .btn-actor-confirm:disabled { opacity: .5; cursor: default; background: var(--slack-green); }
+    .actor-empty { padding: 20px 14px; text-align: center; color: var(--muted); font-size: 12px; }
+  `;
+  document.head.appendChild(style);
+})();
+
+// ── Config panel ───────────────────────────────────────────────────
+const CONFIG_KEYS = [
+  'SLACK_BOT_TOKEN','SLACK_SIGNING_SECRET','SLACK_APP_TOKEN',
+  'HR_CHANNEL_ID','IT_CHANNEL_ID','AUTHORIZED_USER_IDS','AUTHORIZED_CHANNEL_ID',
+  'GOOGLE_CLIENT_EMAIL','GOOGLE_PRIVATE_KEY','GOOGLE_ADMIN_EMAIL','GOOGLE_DOMAIN','GOOGLE_CUSTOMER_ID',
+  'HUBSPOT_ACCESS_TOKEN',
+  'TIMEDOCTOR_ACCESS_TOKEN','TIMEDOCTOR_COMPANY_ID',
+  'SCALEFUSION_API_KEY',
+  'GITHUB_TOKEN','GITHUB_ORG',
+];
+
+async function loadEnvConfig() {
+  try {
+    const res = await fetch('/api/load-env');
+    const data = await res.json();
+    if (data.ok) {
+      CONFIG_KEYS.forEach(key => {
+        const el = document.getElementById(`cfg-${key}`);
+        if (el && data.vars[key]) el.value = data.vars[key];
+      });
+
+      // Update connection status icons
+      updateStatusIcons(data.vars);
+    }
+  } catch (_) {}
+}
+
+function updateStatusIcons(vars) {
+  const isSlackOk = vars.SLACK_BOT_TOKEN && !vars.SLACK_BOT_TOKEN.includes('your-bot-token');
+  const isGoogleOk = vars.GOOGLE_CLIENT_EMAIL && vars.GOOGLE_PRIVATE_KEY && !vars.GOOGLE_CLIENT_EMAIL.includes('your-project');
+  const isTdOk = vars.TIMEDOCTOR_ACCESS_TOKEN && vars.TIMEDOCTOR_COMPANY_ID && !vars.TIMEDOCTOR_ACCESS_TOKEN.includes('your-timedoctor');
+
+  const updateDot = (id, ok) => {
+    const dot = document.querySelector(`#${id} .dot`);
+    if (dot) dot.style.background = ok ? '#2eb67d' : '#ff4444';
+  };
+
+  updateDot('status-slack', isSlackOk);
+  updateDot('status-google', isGoogleOk);
+  updateDot('status-timedoctor', isTdOk);
+}
+
+async function saveEnvConfig() {
+  const vars = {};
+  CONFIG_KEYS.forEach(key => {
+    const el = document.getElementById(`cfg-${key}`);
+    if (el && el.value.trim()) vars[key] = el.value.trim();
+  });
+
+  const status = document.getElementById('cfg-status');
+  status.textContent = '⏳ Guardando...';
+
+  try {
+    const res = await fetch('/api/save-env', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vars }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      status.style.color = 'var(--slack-green)';
+      status.textContent = `✅ ${data.saved} variables guardadas en .env — reinicia el bot para aplicar`;
+    } else {
+      status.style.color = 'var(--fail)';
+      status.textContent = `❌ Error: ${data.error}`;
+    }
+  } catch (err) {
+    status.style.color = 'var(--fail)';
+    status.textContent = `❌ Error de red: ${err.message}`;
+  }
+}
+
+// ── Email auto-generation ──────────────────────────────────────────────────────
+function normalizeForEmail(str) {
+  return str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function buildEmail(first, last) {
+  const domain = 'gsdoutsources.com';
+  const f = normalizeForEmail(first);
+  const l = normalizeForEmail((last || '').split(' ')[0]);
+  if (!f && !l) return `employee@${domain}`;
+  if (!l) return `${f}@${domain}`;
+  return `${f}.${l}@${domain}`;
+}
+
+function updateEmailPreview() {
+  const first = (document.getElementById('ob-first-name')?.value ?? '').trim();
+  const last  = (document.getElementById('ob-last-name')?.value ?? '').trim();
+  const el = document.getElementById('ob-email-preview');
+  if (el) el.textContent = buildEmail(first, last);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+function esc(str) {
+  if (!str) return '—';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

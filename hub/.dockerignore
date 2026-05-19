@@ -1,0 +1,4 @@
+.git
+storage/logs/*
+storage/db/*.sqlite
+config/config.php

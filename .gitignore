@@ -1,31 +1,55 @@
-# ── Dependencias ────────────────────────────────────────────
-vendor/
-node_modules/
-
-# ── Configuración sensible ───────────────────────────────────
+# ── Credentials / secrets (NEVER commit) ────────────────────
 .env
+.env.local
+.env.production
+hub/.env
+slack-bot/.env
+
+# ── Hub config (contains secrets) ───────────────────────────
 hub/config/config.php
-*.env.*
 
-# ── Base de datos local ──────────────────────────────────────
-hub/storage/db/*.sqlite
+# ── SQLite databases ─────────────────────────────────────────
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+hub/storage/db/
+slack-bot/storage/db/
 
-# ── Logs y caché ────────────────────────────────────────────
-hub/storage/logs/*.log
+# ── Logs ────────────────────────────────────────────────────
+*.log
+hub/storage/logs/
+slack-bot/storage/logs/
+
+# ── Node ─────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+slack-bot/node_modules/
+
+# ── PHP ──────────────────────────────────────────────────────
+vendor/
+hub/vendor/
 hub/storage/cache/*
-/tmp/amr-hub.log
+!hub/storage/cache/.gitkeep
 
-# ── Uploads ─────────────────────────────────────────────────
-hub/storage/uploads/documents/*
-hub/storage/uploads/images/*
-hub/storage/uploads/videos/*
+# ── Uploads (user content) ───────────────────────────────────
+hub/storage/uploads/*
+!hub/storage/uploads/.gitkeep
 
-# ── IDE / OS ─────────────────────────────────────────────────
+# ── OS ───────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini
+
+# ── IDE / AI tools ───────────────────────────────────────────
+.idea/
+.vscode/
+.cursor/
+.claude/
+.aider*
 *.swp
 *.swo
-.idea/
-.vscode/settings.json
 
-# ── Build ────────────────────────────────────────────────────
-coverage/
+# ── Docker build artifacts ───────────────────────────────────
+*.tar
